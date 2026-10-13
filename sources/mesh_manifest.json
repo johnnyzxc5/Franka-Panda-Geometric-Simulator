@@ -1,0 +1,106 @@
+[
+  {
+    "path": "sources/meshes/link0.dae",
+    "url": "https://raw.githubusercontent.com/frankarobotics/franka_ros/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description/meshes/visual/link0.dae",
+    "revision": "ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98",
+    "sha256": "050fe608136d11913287eaea6906538ddc9112cdbf7337a3181d9ed03f55f619"
+  },
+  {
+    "path": "sources/meshes/link0.stl",
+    "source": "sources/meshes/link0.dae",
+    "conversion": "COLLADA scene transforms applied to binary STL",
+    "triangles": 20483,
+    "sha256": "541b56ce8918259eb1e18dedc3d763924b3f5e63bed35a01ca843590228f9332"
+  },
+  {
+    "path": "sources/meshes/link1.dae",
+    "url": "https://raw.githubusercontent.com/frankarobotics/franka_ros/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description/meshes/visual/link1.dae",
+    "revision": "ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98",
+    "sha256": "b061af1bcfb57f32719a1ffda44290619549a41b33a37a49bfebe781b20039a4"
+  },
+  {
+    "path": "sources/meshes/link1.stl",
+    "source": "sources/meshes/link1.dae",
+    "conversion": "COLLADA scene transforms applied to binary STL",
+    "triangles": 12516,
+    "sha256": "d68aceb04e9b17e9066ed553c68d837315645e386d5240c3711d0c38e009375c"
+  },
+  {
+    "path": "sources/meshes/link2.dae",
+    "url": "https://raw.githubusercontent.com/frankarobotics/franka_ros/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description/meshes/visual/link2.dae",
+    "revision": "ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98",
+    "sha256": "01ec435e7aee5812eb401489a83bf1717834eb5f21f8f6233e553b2da9be00bb"
+  },
+  {
+    "path": "sources/meshes/link2.stl",
+    "source": "sources/meshes/link2.dae",
+    "conversion": "COLLADA scene transforms applied to binary STL",
+    "triangles": 12716,
+    "sha256": "a082517ca5e2ddfc77051c3d5fec80e9ea24186e4545cf3c1ada81c7d65e6628"
+  },
+  {
+    "path": "sources/meshes/link3.dae",
+    "url": "https://raw.githubusercontent.com/frankarobotics/franka_ros/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description/meshes/visual/link3.dae",
+    "revision": "ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98",
+    "sha256": "ce28221fe968ee86787d594222b24d00aa0f47bb64f53eaacbaf6172e81c29b4"
+  },
+  {
+    "path": "sources/meshes/link3.stl",
+    "source": "sources/meshes/link3.dae",
+    "conversion": "COLLADA scene transforms applied to binary STL",
+    "triangles": 14233,
+    "sha256": "f1f2823acd14fa6bdf70d9989a5353e96f8e0f45239108d7c116766b28476da8"
+  },
+  {
+    "path": "sources/meshes/link4.dae",
+    "url": "https://raw.githubusercontent.com/frankarobotics/franka_ros/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description/meshes/visual/link4.dae",
+    "revision": "ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98",
+    "sha256": "d3a4029d1396471ad78ea5fd06e440167cb46c3ed7ab57befb2bcdbf1360efbf"
+  },
+  {
+    "path": "sources/meshes/link4.stl",
+    "source": "sources/meshes/link4.dae",
+    "conversion": "COLLADA scene transforms applied to binary STL",
+    "triangles": 14621,
+    "sha256": "585d9458828abcdfd9be80c62f9c613173f26782c9e42d7960ef5fed47aab833"
+  },
+  {
+    "path": "sources/meshes/link5.dae",
+    "url": "https://raw.githubusercontent.com/frankarobotics/franka_ros/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description/meshes/visual/link5.dae",
+    "revision": "ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98",
+    "sha256": "07bab2ced87c546bfbc15ce8249038db0e0e582de1607b4243ebd3669dac1f21"
+  },
+  {
+    "path": "sources/meshes/link5.stl",
+    "source": "sources/meshes/link5.dae",
+    "conversion": "COLLADA scene transforms applied to binary STL",
+    "triangles": 18327,
+    "sha256": "a14ee254446f4a6e432e75aab1277bcb5d8251040f32c15718cf13de8985807c"
+  },
+  {
+    "path": "sources/meshes/link6.dae",
+    "url": "https://raw.githubusercontent.com/frankarobotics/franka_ros/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description/meshes/visual/link6.dae",
+    "revision": "ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98",
+    "sha256": "4475cb620e2e7293eb0f317b5f968f6520f703a4e5d4f7b95f75249e4302fd21"
+  },
+  {
+    "path": "sources/meshes/link6.stl",
+    "source": "sources/meshes/link6.dae",
+    "conversion": "COLLADA scene transforms applied to binary STL",
+    "triangles": 21620,
+    "sha256": "3519fae290db037ee73754fb343ed0574b2c7e1cf9f7e6ec0f6e8284c2bbf3af"
+  },
+  {
+    "path": "sources/meshes/link7.dae",
+    "url": "https://raw.githubusercontent.com/frankarobotics/franka_ros/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description/meshes/visual/link7.dae",
+    "revision": "ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98",
+    "sha256": "463227bda9eb9901637107068f59e861fcb81ac89880706d41c26d18c4b46abe"
+  },
+  {
+    "path": "sources/meshes/link7.stl",
+    "source": "sources/meshes/link7.dae",
+    "conversion": "COLLADA scene transforms applied to binary STL",
+    "triangles": 12082,
+    "sha256": "425d2a3d706985c2f0eb45d22a29c807059f1fbc305fb093562dc22ef21e081b"
+  }
+]

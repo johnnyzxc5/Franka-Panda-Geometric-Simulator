@@ -1,0 +1,6 @@
+function root=setup_panda()
+%SETUP_PANDA Offline runtime paths; no Simulink or Robotics Toolbox required.
+root=fileparts(mfilename('fullpath'));
+addpath(root,fullfile(root,'third_party','modern_robotics'), ...
+    fullfile(root,'third_party','shape_kernels'),fullfile(root,'third_party','flatness'));
+end

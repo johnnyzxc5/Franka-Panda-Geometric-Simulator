@@ -1,0 +1,7 @@
+{
+  "external_work_J": 0.00036333222313198339,
+  "forced_energy_balance_error_J": 3.836966507104609E-7,
+  "saturation_test_max_utilization": 1,
+  "edge_pose_error": 3.5136180597890817E-16,
+  "pass": true
+}

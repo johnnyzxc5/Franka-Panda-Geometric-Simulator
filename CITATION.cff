@@ -1,0 +1,20 @@
+cff-version: 1.2.0
+message: "Please cite this software and the parameter literature listed in the README."
+title: "Franka Panda Geometric Simulator"
+type: software
+authors:
+  - family-names: Garcia
+    given-names: Johnny
+    orcid: "https://orcid.org/0009-0005-9107-2951"
+version: 0.1.0
+date-released: 2026-10-13
+url: "https://github.com/johnnyzxc5/Franka-Panda-Geometric-Simulator"
+repository-code: "https://github.com/johnnyzxc5/Franka-Panda-Geometric-Simulator"
+license: MIT
+abstract: "Standalone MATLAB rigid mechanical Panda simulation with SE(3) kinematics, optimized spatial dynamics, published physically feasible parameters, and independent numerical validation."
+keywords:
+  - MATLAB
+  - Franka Panda
+  - geometric robotics
+  - Lie groups
+  - robot dynamics

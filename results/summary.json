@@ -1,0 +1,60 @@
+{
+  "validation": {
+    "seed": 1.3102026E+7,
+    "states": 40,
+    "matlab_version": "26.1.0.3312084 (R2026a) Update 4",
+    "mass_reference_error": 5.6705563546529263E-16,
+    "gravity_reference_error_Nm": 2.2078758271786404E-14,
+    "coriolis_reference_error_Nm": 5.7601510837684083E-10,
+    "fk_chain_error": 7.4682615908559568E-16,
+    "jacobian_finite_difference_error": 6.3248463726798652E-11,
+    "mass_asymmetry": 9.37911763530257E-16,
+    "min_mass_eigenvalue": 0.0035631817417966648,
+    "potential_gradient_error_Nm": 2.6054600668517352E-9,
+    "power_identity_error": 5.0490545078218929E-10,
+    "stock_inverse_dynamics_error_Nm": 0,
+    "stock_mass_error": 0,
+    "forward_inverse_roundtrip_error": 3.9095436610468308E-13,
+    "wrench_duality_error": 8.8817841970012523E-16,
+    "minimum_friction_power_W": 1.0809873422355194,
+    "adjoint_exponential_identity_error": 1.2480850183960632E-15,
+    "physical_table_M77_kg_m2": 0.0049096519673609458,
+    "pass": true
+  },
+  "source_geometry": {
+    "source_relative_pose_error": 2.3513218543629182E-17,
+    "source_axis_error": 0,
+    "source_flange_pose_error": 2.8441001681421824E-16,
+    "pass": true
+  },
+  "nominal": {
+    "actuator_profile": "link_side_rigid",
+    "friction_profile": "gaz2019_sigmoid",
+    "control_dt_s": 0.004,
+    "plant_step_s": 0.001,
+    "duration_s": 3.6,
+    "max_joint_error_deg": 0.0869811349930491,
+    "rms_joint_error_deg": 0.021004234364585827,
+    "max_position_error_mm": 0.0652717508939889,
+    "energy_balance_max_error_J": 5.6218386548246066E-7,
+    "minimum_recorded_limit_margin_rad": 0.97177925070159255,
+    "minimum_stage_limit_margin_rad": 0.97177924989905051,
+    "maximum_stage_limit_violation_rad": 0,
+    "max_stage_velocity_utilization": 0.10063047915101522,
+    "max_command_utilization": 0.22009204681334252,
+    "saturated_joint_samples": 0,
+    "elapsed_seconds": 2.9864234
+  },
+  "step_refinement": {
+    "same_control_dt_s": 0.004,
+    "coarse_plant_step_s": 0.001,
+    "fine_plant_step_s": 0.0005,
+    "max_q_difference_rad": 1.4596868569416444E-7,
+    "max_dq_difference_rad_s": 3.8874316711512424E-7,
+    "coarse_energy_error_J": 5.6218386548246066E-7,
+    "fine_energy_error_J": 5.6217032252176913E-7,
+    "pass": true
+  },
+  "pass": true,
+  "scope": "Identified seven-link rigid mechanical model. Numerical validation, not new hardware validation."
+}

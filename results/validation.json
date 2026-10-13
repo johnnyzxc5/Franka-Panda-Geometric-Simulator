@@ -1,0 +1,22 @@
+{
+  "seed": 1.3102026E+7,
+  "states": 40,
+  "matlab_version": "26.1.0.3312084 (R2026a) Update 4",
+  "mass_reference_error": 5.6705563546529263E-16,
+  "gravity_reference_error_Nm": 2.2078758271786404E-14,
+  "coriolis_reference_error_Nm": 5.7601510837684083E-10,
+  "fk_chain_error": 7.4682615908559568E-16,
+  "jacobian_finite_difference_error": 6.3248463726798652E-11,
+  "mass_asymmetry": 9.37911763530257E-16,
+  "min_mass_eigenvalue": 0.0035631817417966648,
+  "potential_gradient_error_Nm": 2.6054600668517352E-9,
+  "power_identity_error": 5.0490545078218929E-10,
+  "stock_inverse_dynamics_error_Nm": 0,
+  "stock_mass_error": 0,
+  "forward_inverse_roundtrip_error": 3.9095436610468308E-13,
+  "wrench_duality_error": 8.8817841970012523E-16,
+  "minimum_friction_power_W": 1.0809873422355194,
+  "adjoint_exponential_identity_error": 1.2480850183960632E-15,
+  "physical_table_M77_kg_m2": 0.0049096519673609458,
+  "pass": true
+}

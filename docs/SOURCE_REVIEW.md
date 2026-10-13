@@ -1,0 +1,19 @@
+# Panda source review
+
+Research date: October 13, 2026. This distinguishes inspected primary evidence from material located but not read in full. No additional download is necessary for the current release.
+
+| Source | Inspection and role | Decision |
+|---|---|---|
+| Gaz, Cognetti, Oliva, Robuffo Giordano and De Luca (2019), *Dynamic Identification of the Franka Emika Panda Robot With Retrieval of Feasible Parameters Using Penalty-Based Optimization*, [DOI](https://doi.org/10.1109/LRA.2019.2931248), [author-hosted PDF](https://www.diag.uniroma1.it/~labrob/pub/papers/RAL_2019_PandaDynamicModel_PreprintXplore.pdf) | Full article retrieved; rigid link-side assumptions, COM inertia conventions, friction law and feasible retrieval inspected. | Principal parameter/model source. |
+| Same work, [revised supplement and erratum](https://diag.uniroma1.it/gaz/panda2019.html); [pinned supplement](https://github.com/marcocognetti/FrankaEmikaPandaDynModel/blob/24d85ce4e648e2e894c832bfeee9b16711eb1a1a/pdf/RA-L_2019_PandaDynIdent_SUPPLEMENTARY_MATERIAL.pdf) | Full supplement inspected. Table I supplies friction; VIII/IX physical parameters; page 1 explains coefficient-set differences. | Adopt feasible physical set and corrected friction. |
+| [Authors' original repository](https://github.com/marcocognetti/FrankaEmikaPandaDynModel/tree/24d85ce4e648e2e894c832bfeee9b16711eb1a1a) | Generated dynamics examined outside this repository; M77 discrepancy reconciled with the supplement. Code is GPL-3.0. | Do not bundle or call these programs in the MIT simulator. Implement published equations with own geometric kernels. |
+| [Official Franka description](https://github.com/frankarobotics/franka_ros/tree/ddd2fffd9de44b02ad15b4bbb2bfa2cec4d60d98/franka_description) | Pinned joint origins, limits, inertial YAML and visual assets inspected. Its inertial file explicitly attributes identified values to Gaz rather than manufacturer ground truth. | Use geometry/limits, preserve Apache-2.0 attribution; cross-check inertial facts. |
+| [Official FCI overview](https://frankarobotics.github.io/docs/overview.html) | Compensated commands and link-side measurement convention checked. | Document that total simulation torque is not a direct FCI command. |
+| Gilbert Soto, Francis Irungu Maina and Jean B. Byiringiro (2024), *Nonlinear Parameter Identification of the Franka Emika PANDA Robot: A Comparative Analysis of Friction Models*, [publisher page](https://ajeeet.ft.unand.ac.id/index.php/ajeeet/article/view/101), [DOI](https://doi.org/10.25077/ajeeet.v4i2.101) | Publisher abstract reviewed: compares LuGre, Stribeck and sigmoid models; includes the hand as payload and performs a separate calibration. | Relevant future comparison. Do not mix its parameters into the current coherent Gaz profile. |
+| Riccardo Bisogni and Gabriele Gatti (2022), *Identification of a Franka Emika Panda cobot's dynamical parameters*, [Politecnico di Milano record](https://www.politesi.polimi.it/handle/10589/195422) | Institutional metadata/abstract reviewed. Full thesis is restricted to authorized users; not inspected. | Optional further evidence if the author obtains it through authorized access. Not required for this release. |
+
+## What remains to establish experimentally
+
+Using a published identified set gives the simulator a defensible mechanical baseline. It does not prove that it matches a particular lab Panda, payload, temperature or command interface. New measured trajectory/torque data would be needed for that claim. Adding a later friction law would require preserving its calibration context and verifying passivity/energy bookkeeping, rather than assuming that a newer publication automatically supplies better interchangeable parameters.
+
+The original thesis simulation and SHAPE paper were not modified when building this standalone repository.
