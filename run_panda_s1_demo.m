@@ -1,0 +1,66 @@
+function summary = run_panda_s1_demo()
+%RUN_PANDA_S1_DEMO Validate, simulate, and refine the global (S1)^7 Lie-group formulation.
+%
+% Executes the complete Version B workflow:
+%   1. Runs mechanical validation tests on (S1)^7 (validate_panda_s1).
+%   2. Runs geometry and limit tests on (S1)^7 (test_s1_geometry_limits).
+%   3. Simulates nominal 3.6 s closed-loop trajectory via Lie-group RK4-MK.
+%   4. Checks time-step refinement (h = 1 ms vs h = 0.5 ms).
+%   5. Persists results to 'results/demo_s1.mat' and 'results/summary_s1.json'.
+
+root = setup_panda();
+addpath(fullfile(root, 'tests'), fullfile(root, 'tools'), fullfile(root, 'examples'));
+
+fprintf('=== FRANKA PANDA: GLOBAL (S1)^7 GEOMETRIC DYNAMICS DEMO ===\n\n');
+
+validation = validate_panda_s1();
+geom_limits = test_s1_geometry_limits();
+
+m = panda_s1.model();
+c = panda.config();
+
+log = panda_s1.simulate(m, c);
+
+% Step refinement check (h = 1 ms vs h = 0.5 ms on (S1)^7)
+c_fine = c;
+c_fine.substeps = 2 * c.substeps;
+fine = panda_s1.simulate(m, c_fine);
+
+stepcheck = struct( ...
+    'same_control_dt_s', c.control_dt, ...
+    'coarse_plant_step_s', c.control_dt / c.substeps, ...
+    'fine_plant_step_s', c_fine.control_dt / c_fine.substeps, ...
+    'max_q_difference_rad', max(abs(log.q - fine.q), [], 'all'), ...
+    'max_dq_difference_rad_s', max(abs(log.omega - fine.omega), [], 'all'), ...
+    'coarse_energy_error_J', log.metrics.energy_balance_max_error_J, ...
+    'fine_energy_error_J', fine.metrics.energy_balance_max_error_J, ...
+    'energy_convergence_ratio', log.metrics.energy_balance_max_error_J / fine.metrics.energy_balance_max_error_J);
+
+stepcheck.pass = stepcheck.max_q_difference_rad < 1e-5 && ...
+                 stepcheck.max_dq_difference_rad_s < 1e-4 && ...
+                 stepcheck.coarse_energy_error_J < 1e-8 && ...
+                 stepcheck.energy_convergence_ratio > 14;
+
+summary = struct( ...
+    'representation', 'S1', ...
+    'validation_s1', validation, ...
+    'geometry_limits_s1', geom_limits, ...
+    'nominal', log.metrics, ...
+    'step_refinement', stepcheck, ...
+    'pass', validation.pass && geom_limits.pass && stepcheck.pass && ...
+            log.metrics.maximum_stage_limit_violation_rad <= 0 && ...
+            log.metrics.max_unit_norm_error <= 1e-15, ...
+    'scope', 'Global Lie-group dynamics on (S1)^7 with Munthe-Kaas RK4 integration.');
+
+assert(summary.pass, 'panda_s1:demo', 'Version B demo checks failed');
+
+if c.save_results
+    out = fullfile(root, 'results');
+    save(fullfile(out, 'demo_s1.mat'), 'log', 'm', 'c');
+    panda.write_json(fullfile(out, 'summary_s1.json'), summary);
+end
+
+fprintf('\n=== VERSION B DEMO RESULTS ===\n');
+disp(log.metrics);
+disp(stepcheck);
+end
