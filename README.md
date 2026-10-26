@@ -74,7 +74,7 @@ where $m_i = \frac{1}{2}(q_{\min,i} + q_{\max,i})$ and $\hat{x}_i = x_i / \|x_i\
 
 ---
 
-## Performance & Accuracy Benchmark
+## Performance & Accuracy: Version A vs. Version B
 
 Evaluated on **MATLAB R2026a Update 4** across $N = 100$ independent states ($1,000$ timed evaluations per routine) with CPU warm-up.
 
@@ -83,54 +83,49 @@ All states are sampled strictly inside the **physically admissible operating env
 - **Velocity Limit Utilization:** $\max |\dot{q}| / \dot{q}_{\max} = 0.9459 \le 0.95$ ($0$ violations across all 100 states)
 - **Torque Limit Utilization:** $\max |\tau| / \tau_{\max} = 0.9277 \le 0.95$ ($0$ violations across all 100 states)
 
-To separate **algorithmic specialization** (revolute $z$-axis rotations and hoisted adjoints) from the **manifold representation** ($X \in (S^1)^7$ vs. $q \in \mathbb{R}^7$), the benchmark includes **Variant B-alg** ($q \in \mathbb{R}^7 \mapsto [\cos q^\top; \sin q^\top]$ + specialized $S^1$ kernels).
+### Compact Benchmark: Two Formulations in Direct Comparison
 
-### 1. Micro-Benchmarks: Median Latency per Evaluation (µs)
-
-| Operation | Complexity | Stock MR | Version A ($q \in \mathbb{R}^7$) | Variant B-alg ($q + S^1$ kernels) | Version B ($X \in (S^1)^7$) | Speedup B vs. Stock | Speedup B vs. A | Speedup B vs. B-alg |
-|:---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| **Forward Kinematics (`fk`)** | $O(n)$ | 42.13 µs | 42.24 µs | 14.92 µs | **13.29 µs** | **3.17×** | **3.18×** | **1.12×** |
-| **Link Frames (`frames`)** | $O(n)$ | 49.28 µs | 52.49 µs | 9.96 µs | **9.08 µs** | **5.43×** | **5.78×** | **1.10×** |
-| **Space Jacobian ($J_s$)** | $O(n)$ | 48.10 µs | 49.01 µs | 25.90 µs | **25.24 µs** | **1.91×** | **1.94×** | **1.03×** |
-| **Body Jacobian ($J_b$)** | $O(n)$ | 48.07 µs | 96.25 µs | 33.11 µs | **31.73 µs** | **1.52×** | **3.03×** | **1.04×** |
-| **Inverse Dynamics (`id`, RNEA)** | $O(n)$ | 162.38 µs | 105.27 µs | 51.45 µs | **49.07 µs** | **3.31×** | **2.15×** | **1.05×** |
-| **Dynamics (`dyn`, $M, b$)** | $O(n^2) + O(n)$ | 1,271.50 µs | 178.47 µs | **124.34 µs** | 124.99 µs | **10.17×** | **1.43×** | 0.99× |
-| **Forward Dynamics (`fd`, $\ddot{q}$)** | $O(n^2) + O(n^3)$ | 1,297.35 µs | 186.53 µs | 127.72 µs | **124.53 µs** | **10.42×** | **1.50×** | **1.03×** |
-
-### 2. Full 3.6 s Closed-Loop Simulation (3,600 RK4 Substeps)
-
-| Simulation Metric | Version A ($q \in \mathbb{R}^7$, PoE) | Variant B-alg ($q + S^1$ Kernels) | Version B ($(S^1)^7$, Lie RK4-MK) |
-|:---|:---:|:---:|:---:|
-| **Wall-Clock Time** | 3,067.88 ms | **2,091.79 ms** | **2,158.82 ms** |
-| **Substep Latency** | 852.19 µs | **581.05 µs** | **599.67 µs** |
-| **Real-Time Factor (RTF)** | 1.17× | **1.72×** | **1.67×** |
-| **Speedup vs. Version A** | 1.00× | **1.47×** | **1.42×** |
-| **Nominal Energy Balance Error** | $5.6218 \times 10^{-7}\text{ J}$ | **$9.9790 \times 10^{-11}\text{ J}$** | **$1.0000 \times 10^{-10}\text{ J}$** |
-| **Final Trajectory Parity vs. B** | $8.3267 \times 10^{-16}\text{ rad}$ | **$8.8818 \times 10^{-16}\text{ rad}$** | 0 (Reference) |
-| **Max $S^1$ Unit-Norm Error** | N/A | N/A | **$2.2204 \times 10^{-16}$ (1 ulp)** |
+| Routine / Simulation Metric | Version A (`+panda/`, PoE) | Version B (`+panda_s1/`, Lie $(S^1)^7$) | Advantage (B vs. A) | Algorithmic & Geometric Principle |
+|:---|:---:|:---:|:---:|:---|
+| **Forward Kinematics (`fk`)** | 42.24 µs | **13.29 µs** | **3.18× faster** | Purely algebraic screw exponentials ([Theorem 3.1](#core-geometric-equations-on-s17)) |
+| **Link Frames (`frames`)** | 52.49 µs | **9.08 µs** | **5.78× faster** | Direct $R_z(x_i)$ rotation without trigonometric calls |
+| **Space Jacobian ($J_s$)** | 49.01 µs | **25.24 µs** | **1.94× faster** | Algebraic screw transformations on $(S^1)^7$ |
+| **Body Jacobian ($J_b$)** | 96.25 µs | **31.73 µs** | **3.03× faster** | Homomorphism-factorized body adjoint propagation |
+| **Inverse Dynamics (`id`, RNEA)** | 105.27 µs | **49.07 µs** | **2.15× faster** | Hoisted constant link adjoints $B^{(i)} = \mathrm{Ad}_{M_i^{-1}}$ ([Eq. 3](#core-geometric-equations-on-s17)) |
+| **Total Dynamics (`dyn`, $M, b$)** | 178.47 µs | **124.99 µs** | **1.43× faster** | Shared recursive kinematics and polynomial mass matrix |
+| **Forward Dynamics (`fd`, $\ddot{q}$)** | 186.53 µs | **124.53 µs** | **1.50× faster** | Cholesky-solved joint accelerations from $M(X)$ and $b(X,\omega)$ |
+| **Closed-Loop 3.6 s Simulation** | 3,067.88 ms | **2,158.82 ms** | **1.42× faster** | Real-Time Factor (RTF) improves from 1.17× to **1.67×** (3,600 RK4 substeps) |
+| **Substep Latency** | 852.19 µs | **599.67 µs** | **1.42× faster** | Wall-clock latency per RK4 plant integration step |
+| **Nominal Energy Balance Residual** | $5.6218 \times 10^{-7}\text{ J}$ | **$1.0000 \times 10^{-10}\text{ J}$** | **5,621× lower residual** | Elimination of `MatrixExp6` `NearZero` step discontinuity at $h = 1\text{ ms}$ |
+| **Final Trajectory Parity** | $8.3267 \times 10^{-16}\text{ rad}$ | 0 (Reference) | **$< 1\text{ ulp}$ agreement** | Trajectories match down to machine roundoff |
+| **Manifold Preservation Error** | N/A (ambient $\mathbb{R}^{14}$) | **$2.2204 \times 10^{-16}$** | **1 ulp precision** | Lie-group projection $\|\hat{x}_i\|_2 = 1$ strictly maintained |
 
 ![Benchmark Comparison](docs/assets/benchmark_s1_comparison.png)
+
+> [!NOTE]
+> **Independent Four-Way Ablation Study (Stock MR vs. Version A vs. Variant B-alg vs. Version B):**  
+> To isolate the root causes of the performance gains, an auxiliary ablation benchmark was conducted on identical physical states with two additional control implementations: **Stock Modern Robotics** (generic textbook baseline) and **Variant B-alg** (which operates in joint coordinates $q \in \mathbb{R}^7$ but invokes the specialized $S^1$ kernels).  
+> - **Algorithmic Specialization:** The ablation demonstrates that $\sim 88\%\text{--}95\%$ of the speedup over Version A stems from Theorem 3.1 and the hoisted adjoint factorization $B^{(i)} = \mathrm{Ad}_{M_i^{-1}}$ (which also accelerates joint-coordinate computations).
+> - **Manifold State:** Storing $X \in (S^1)^7$ directly provides an additional 3%–12% speedup in isolated kinematics and inverse dynamics calls by avoiding runtime `cos(q)` / `sin(q)` calls, while closed-loop simulation shows a minor 3.2% overhead ($2,091.79\text{ ms}$ vs. $2,158.82\text{ ms}$) due to the 4 Lie-group group updates per RK4-MK substep.
+> - **Comprehensive Technical Report:** For complete 4-way micro-benchmark tables, representation primitive timings, step-size convergence curves, and numerical verification data, see the full report: **[docs/development/BENCHMARK_COMPARISON.md](docs/development/BENCHMARK_COMPARISON.md)**.
 
 ---
 
 ## Scientific Findings
 
-### 1. Elimination of the `NearZero` Discontinuity (5,621× to 2.3×10⁶× Energy Conservation)
+### 1. Numerical Energy Balance ($5,621\times$ Residual Reduction at $h = 1\text{ ms}$)
 In Version A, the Modern Robotics kernel `MatrixExp6` calls `NearZero(norm(omgtheta))` with threshold $|q_i| < 10^{-6}\text{ rad}$ to avoid division by zero when recovering $\theta$ from `se3mat`. When joints 1, 3, and 5 accelerate from $q_i(0)=0$, crossing $10^{-6}\text{ rad}$ at step $k=3$ introduces an artificial $O(10^{-6})$ step discontinuity in $R_i \to I_3$. This created a fixed $5.62 \times 10^{-7}\text{ J}$ error floor that could not be reduced by refining the time step.
 
-Because rotations are evaluated algebraically in terms of $x_i = [c_i, s_i]^\top \in S^1$ without angle division, the vector field is $C^\infty$ at $q_i=0$. This smooth formulation is shared by **Variant B-alg** ($9.98 \times 10^{-11}\text{ J}$) and **Version B** ($1.00 \times 10^{-10}\text{ J}$):
-- At $h = 1.0\text{ ms}$, the energy balance residual drops to **$1.0000 \times 10^{-10}\text{ J}$ ($5,621\times$ better than Version A)**.
-- Under step refinement ($h = 0.5\text{ ms} \implies 5.77 \times 10^{-12}\text{ J}$; $h = 0.25\text{ ms} \implies 2.44 \times 10^{-13}\text{ J}$), the formulation recovers true **$O(h^4)$ 4th-order Runge–Kutta convergence** (a **$2,302,747\times$ advantage** over Version A at $h = 0.25\text{ ms}$).
-- **Integrator Nature:** RK4-MK is an explicit 4th-order Lie-group Runge–Kutta integrator on $(S^1)^7 \times \mathbb{R}^7$, not a symplectic variational integrator. It preserves the configuration manifold to 1 ulp ($2.22 \times 10^{-16}$), and conserves energy numerically to order $O(h^4)$.
+Because rotations in Version B are evaluated algebraically in terms of $x_i = [c_i, s_i]^\top \in S^1$ without angle division, the vector field is $C^\infty$ at $q_i=0$:
+- At $h = 1.0\text{ ms}$, the energy balance residual drops to **$1.0000 \times 10^{-10}\text{ J}$ ($5,621\times$ lower than Version A)**.
+- Under step refinement ($h = 0.5\text{ ms} \implies 5.77 \times 10^{-12}\text{ J}$; $h = 0.25\text{ ms} \implies 2.44 \times 10^{-13}\text{ J}$), the formulation recovers true **$O(h^4)$ 4th-order Runge–Kutta convergence** (a **$2,302,747\times$ lower residual** than Version A at $h = 0.25\text{ ms}$).
+- **Integrator Nature:** RK4-MK is an explicit 4th-order Lie-group Runge–Kutta integrator on $(S^1)^7 \times \mathbb{R}^7$, not a symplectic variational integrator. It preserves the configuration manifold to 1 ulp ($2.22 \times 10^{-16}$), and conserves energy numerically to order $O(h^4)$ (presented here as energy balance residuals rather than an exact physical conservation invariant).
 
 ### 2. Topological Analysis of Joint Limits ($2h > \pi$ Hazard)
 All 7 Panda joints have finite limits with span $2h_i < 2\pi$. However, **6 out of 7 joints have span $2h_i > \pi$**.
 - When $|\Delta q_i| > \pi$, the shortest geodesic on $S^1$ (`geodesic_diff`) points **across the forbidden mechanical stop** (experimentally verified to cause a $0.2433\text{ rad}$ stop violation on Joint 1).
 - Version B solves this via the homotopy-consistent admissible-arc displacement `box_diff(X2, X1, m)`, which lifts $x_i$ into the reference frame of the arc midpoint $u_i = [\cos m_i, \sin m_i]^\top$. This guarantees that the branch cut lies at $m_i \pm \pi \in S^1 \setminus \mathcal{A}_i$, enabling completely smooth traversal of the $+\pi$ boundary on Joint 6 ($[-0.0175, +3.7525]\text{ rad}$) with zero limit violations.
 - **Monitoring vs. Dynamic Invariance:** `check_limits.m` validates both $S^1$ manifold membership (tolerance on $\|x\|_2 = 1$) and the normalized arc inequality ([Eq. 4](#core-geometric-equations-on-s17), evaluated on unit vectors without angle lifting). The simulator monitors stage margins at all RK4 substeps (`minimum_stage_limit_margin_rad`, `maximum_stage_limit_violation_rad`) and saturates command torques at maximum bounds `taumax`, without asserting dynamic forward invariance (viability) or contact collision mechanics.
-
-### 3. Decomposition: Algorithmic Specialization vs. Manifold Representation
-Comparing Version B with Variant B-alg reveals that **$\sim 88\%\text{--}95\%$ of the execution speedup** over Version A comes from Theorem 3.1 and the hoisted adjoint factorization $B^{(i)} = \mathrm{Ad}_{M_i^{-1}}$ (which also benefits $q \in \mathbb{R}^7$). Storing $X \in (S^1)^7$ directly provides an **additional 3%–12% speedup** in individual kinematics and inverse dynamics calls by eliminating runtime `cos(q)` and `sin(q)` calls, while closed-loop simulation shows a minor 3.2% overhead ($2,091.79\text{ ms}$ vs. $2,158.82\text{ ms}$) due to the 4 Lie-group `exp_s1` stage updates per RK4-MK substep.
 
 ---
 
@@ -203,13 +198,13 @@ Open MATLAB in the repository root directory:
 ```matlab
 setup_panda;
 
-% 1. Run Version A Demo (Original Euclidean Dynamics)
+% 1. Run Version A Demo (Original Euclidean Dynamics in +panda/)
 summary_a = run_panda_demo();
 
-% 2. Run Version B Demo (Global (S^1)^7 Lie-Group Dynamics)
+% 2. Run Version B Demo (Global Lie-Group Dynamics on (S^1)^7 in +panda_s1/)
 summary_b = run_panda_s1_demo();
 
-% 3. Run Comprehensive 4-Way Scientific Benchmark (Physically Admissible Envelope)
+% 3. Run Benchmark (Direct Comparison on Physically Admissible States)
 report = benchmark_s1_comparison();
 
 % 4. Regenerate 3D Animated GIFs

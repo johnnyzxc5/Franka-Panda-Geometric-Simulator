@@ -114,6 +114,7 @@
   - Ramas `main` y `review/s1-scientific-polish` publicadas en `origin`.
   - Auditoría sistemática del README renderizado en vivo en GitHub: resolución de todas las colisiones sintácticas entre CommonMark y MathJax (eliminación de cursivas envolventes en pies de figuras, erradicación de errores de KaTeX `' _ ' allowed only in math mode` mediante backticks para código, y eliminación de emparejamientos espurios de guiones bajos en fórmulas inline).
   - Verificación remota final en el DOM real: 0 cajas rojas de error, 0 dólares sin compilar y 207 fórmulas matemáticas renderizadas limpiamente en MathML.
+  - Ajuste editorial final de portada: consolidación del README en una comparación directa y limpia Version A vs. Version B (tabla compacta unificada de métricas y latencias), contextualización de Variant B-alg y Stock MR como experimentos auxiliares de ablación en un callout dedicado con enlace a `docs/development/BENCHMARK_COMPARISON.md`.
 * **Cierre del Ciclo:** Ciclo de revisión científica y pulido R0–R5 finalizado exitosamente. Repositorio completamente verificado y público.
 
 ---
