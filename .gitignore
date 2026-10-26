@@ -13,6 +13,8 @@ results/*
 !results/simulation_inputs_validation.json
 !results/source_geometry_validation.json
 !results/benchmark.json
+!results/benchmark_s1_comparison.json
+!results/benchmark_s1_comparison.mat
 !results/panda_preview.png
 !results/simulation_diagnostics.png
 *.pyc
