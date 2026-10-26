@@ -15,6 +15,7 @@ results/*
 !results/benchmark.json
 !results/benchmark_s1_comparison.json
 !results/benchmark_s1_comparison.mat
+!results/benchmark_s1_comparison.png
 !results/panda_preview.png
 !results/simulation_diagnostics.png
 *.pyc

@@ -67,24 +67,25 @@ log = struct('t', t, 'X', zeros(2, n, N), 'q', zeros(n, N), 'dq', zeros(n, N), .
     'position_ref', zeros(3, N), 'max_unit_norm_error', zeros(1, N));
 
 h = c.control_dt / c.substeps;
-limit_violation = 0;
 velocity_utilization = 0;
-stage_min_margin = Inf;
 max_unit_norm_ever = 0;
 
 cm = m.umid(1, :)';
 sm = m.umid(2, :)';
+min_stage_cos_delta = inf(n, 1);
+worst_stage_C = X0(1, :)';
+worst_stage_S = X0(2, :)';
 
 for k = 1:N
-    q_lifted = panda_s1.to_q(X, m);
     [Xr, dqr, ddqr, qr] = panda_s1.reference(t(k), c, m, phase, X0, d_box);
 
-    % Control computation using admissible-arc displacement box_diff
+    % Control computation using admissible-arc displacement box_diff on (S1)^7
     if isempty(c.control_function)
         err_box = panda_s1.box_diff(Xr, X, m);
         virtual = ddqr + c.kp(:) .* err_box + c.kd(:) .* (dqr - omega);
         command_raw = panda_s1.inverse_dynamics(X, omega, virtual, controller);
     else
+        q_lifted = panda_s1.to_q(X, m);
         command_raw = panda.joint_vector(c.control_function(t(k), q_lifted, omega, qr, dqr, ddqr, controller));
     end
 
@@ -96,9 +97,8 @@ for k = 1:N
     [alpha, ~] = inputs(t(k), X, omega, m, c, n);
     actual = alpha .* command;
 
-    % Diagnostics and logging
+    % Diagnostics and logging on (S1)^7 x R^7
     log.X(:, :, k) = X;
-    log.q(:, k) = q_lifted;
     log.dq(:, k) = omega;
     log.omega(:, k) = omega;
     log.Xref(:, :, k) = Xr;
@@ -157,17 +157,24 @@ for k = 1:N
             work = work + (h / 6) * (k1_work + 2 * k2_work + 2 * k3_work + k4_work);
 
             if c.capture_substeps
-                % Vectorized stage monitoring across all 5 states (X1, X2, X3, X4, X)
+                % Algebraic S^1 stage monitoring across all 5 states (X1, X2, X3, X4, X)
                 C_st = [X1(1, :)', X2(1, :)', X3(1, :)', X4(1, :)', X(1, :)'];
                 S_st = [X1(2, :)', X2(2, :)', X3(2, :)', X4(2, :)', X(2, :)'];
 
                 st_norm_err = max(abs(C_st.^2 + S_st.^2 - 1), [], 'all');
                 max_unit_norm_ever = max(max_unit_norm_ever, st_norm_err);
 
-                delta_st = atan2(S_st .* cm - C_st .* sm, C_st .* cm + S_st .* sm);
-                margins_st = m.qhalf - abs(delta_st);
-                stage_min_margin = min(stage_min_margin, min(margins_st, [], 'all'));
-                limit_violation = max(limit_violation, max(0, -min(margins_st, [], 'all')));
+                % By monotonicity of cos(|delta_i|) on [0, pi], minimum radian margin
+                % corresponds to minimum algebraic projection u_i^T * x_i = cos(delta_i)
+                cos_delta_st = C_st .* cm + S_st .* sm;
+                [min_c_sub, idx_sub] = min(cos_delta_st, [], 2);
+                upd = min_c_sub < min_stage_cos_delta;
+                if any(upd)
+                    min_stage_cos_delta(upd) = min_c_sub(upd);
+                    lin_idx = find(upd) + (idx_sub(upd) - 1) * n;
+                    worst_stage_C(upd) = C_st(lin_idx);
+                    worst_stage_S(upd) = S_st(lin_idx);
+                end
 
                 stage_omegas = [omega1, omega2, omega3, omega4, omega];
                 velocity_utilization = max(velocity_utilization, ...
@@ -180,14 +187,25 @@ for k = 1:N
     end
 end
 
-error_deg = (log.q - log.qref) * 180 / pi;
-log.energy_residual = log.H - log.H(1) - log.work_joint - log.work_environment + log.friction_loss;
-
-[~, rec_margins] = panda_s1.check_limits(X, m); %#ok<ASGLU>
 C_rec = reshape(log.X(1, :, :), n, N);
 S_rec = reshape(log.X(2, :, :), n, N);
 delta_rec = atan2(S_rec .* cm - C_rec .* sm, C_rec .* cm + S_rec .* sm);
+log.q = m.qmid + delta_rec;
 margins_rec = m.qhalf - abs(delta_rec);
+
+if c.capture_substeps
+    worst_delta = abs(atan2(worst_stage_S .* cm - worst_stage_C .* sm, ...
+                            worst_stage_C .* cm + worst_stage_S .* sm));
+    worst_margins = m.qhalf - worst_delta;
+    stage_min_margin = min(worst_margins);
+    limit_violation = max([0; -worst_margins]);
+else
+    stage_min_margin = Inf;
+    limit_violation = 0;
+end
+
+error_deg = (log.q - log.qref) * 180 / pi;
+log.energy_residual = log.H - log.H(1) - log.work_joint - log.work_environment + log.friction_loss;
 
 log.metrics = struct('actuator_profile', m.actuator_profile, 'friction_profile', m.friction_profile, ...
     'control_dt_s', c.control_dt, 'plant_step_s', h, 'duration_s', c.end_time, ...

@@ -28,11 +28,12 @@ else
         'Configuration must be 2-by-7, 7-by-2, or 14-element vector (got %dx%d)', sz(1), sz(2));
 end
 
-max_norm_err = max(abs(sum(X.^2, 1) - 1));
-
-if ~isempty(tol) && max_norm_err > tol
-    error('panda_s1:unit_norm', ...
-        'Columns of X must have unit norm on S^1 (max error: %e > tol: %e)', ...
-        max_norm_err, tol);
+if nargout > 1 || ~isempty(tol)
+    max_norm_err = max(abs(sum(X.^2, 1) - 1));
+    if ~isempty(tol) && max_norm_err > tol
+        error('panda_s1:unit_norm', ...
+            'Columns of X must have unit norm on S^1 (max error: %e > tol: %e)', ...
+            max_norm_err, tol);
+    end
 end
 end
