@@ -30,8 +30,8 @@
 | **HITO R1** | **Revisión matemática y científica** | **Argon / Astra** | **COMPLETADO** | 26-Oct-2026. Análisis formal de límites, energía, estructura polinomial/racional y criterios para R2 (`80106bf`). |
 | **HITO R2** | **Correcciones de código, tests y benchmarks** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Validación $S^1$ desacoplada, test energético intrínseco, muestreo físico admisible 100% (`bf2c12f`). |
 | **HITO R3** | **Auditoría científica de las correcciones** | **Argon / Astra** | **COMPLETADO** | 26-Oct-2026. Verificación independiente de las 8 comprobaciones y aprobación de conclusiones para el README. |
-| **HITO R4** | **README, LaTeX, presentación y animaciones** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Ecuaciones en bloque GFM, tablas sincronizadas con R2, conclusiones aprobadas y verificación visual (`36cb61a`). |
-| **HITO R5** | **Validación y publicación final en GitHub** | **Flash 3.8 High** | **PENDIENTE** | Suite completa de validación, integración en `main`, push y comprobación remota real. |
+| **HITO R4** | **README, LaTeX, presentación y animaciones** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Ecuaciones en bloque GFM, tablas sincronizadas con R2, conclusiones aprobadas y verificación visual (`cf588d0`). |
+| **HITO R5** | **Validación y publicación final en GitHub** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Suite completa (6/6 tests PASS), preservación de `+panda/`, merge a `main`, push y auditoría remota. |
 
 ---
 
@@ -100,6 +100,20 @@
 * **Próxima acción exacta:**
   - **HITO R5 (Flash 3.8 High):** Ejecutar la suite completa de validación en MATLAB R2026a Update 4 (`setup_panda; validate_panda; validate_panda_s1; test_s1_geometry_limits; test_s1_simulation_consistency; test_source_geometry; test_simulation_inputs`), verificar `git diff main -- +panda/` estrictamente vacío, hacer checkout a `main`, merge limpio `--no-ff` de la rama `review/s1-scientific-polish`, push a `origin main` y `origin review/s1-scientific-polish`, y verificación en vivo del repositorio en GitHub (`https://github.com/johnnyzxc5/Franka-Panda-Geometric-Simulator`).
 * **Bloqueos o incertidumbres:** Ninguno.
+
+---
+
+### Hito R5 — Validación y Publicación Final en GitHub
+* **Estado:** **COMPLETADO**
+* **Responsable:** Flash 3.8 High
+* **Resultados de Validación:**
+  - MATLAB R2026a Update 4: **6/6 tests PASS** (`validate_panda`, `validate_panda_s1`, `test_s1_geometry_limits`, `test_s1_simulation_consistency`, `test_source_geometry`, `test_simulation_inputs`).
+  - Preservación estricta de `+panda/`: `git diff main -- +panda/` 100 % vacío (cero modificaciones en el baseline original).
+* **Integración y Publicación Git:**
+  - Rama `review/s1-scientific-polish` fusionada limpiamente en `main` mediante merge sin avance rápido (`--no-ff`).
+  - Ramas `main` y `review/s1-scientific-polish` publicadas en `origin`.
+  - Verificación remota en vivo en `https://github.com/johnnyzxc5/Franka-Panda-Geometric-Simulator`.
+* **Cierre del Ciclo:** Ciclo de revisión científica y pulido R0–R5 finalizado exitosamente. Repositorio completamente verificado y público.
 
 ---
 

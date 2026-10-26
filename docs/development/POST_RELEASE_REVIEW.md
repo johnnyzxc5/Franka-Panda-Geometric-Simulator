@@ -281,3 +281,31 @@ Se ejecutó una auditoría sintáctica y estructural completa sobre `README.md`:
 - **Enlaces Internos:** Todos los enlaces y anclas `#` resuelven a encabezados existentes.
 - **Previsualización HTML:** Se generó `readme_preview.html` confirmando el renderizado limpio de tablas, ecuaciones KaTeX/MathJax y recursos visuales.
 
+---
+
+## Parte VI — Validación Final, Integración y Publicación en GitHub (Hito R5)
+
+**Responsable:** Flash 3.8 High  
+**Objetivo:** Certificar la suite completa de pruebas numéricas, comprobar la no-regresión y preservación de la Versión A (`+panda/`), integrar la rama de revisión en `main` y publicar los cambios en GitHub verificando la experiencia pública final.
+
+### 1. Resultados de la Suite Completa de Tests en MATLAB R2026a
+
+Se ejecutó la validación completa en MATLAB R2026a Update 4:
+1. `validate_panda`: **PASS** (`pass: true`). Simetría de masa $9.38\times 10^{-16}$, error FK $7.47\times 10^{-16}$, roundtrip FD/ID $3.91\times 10^{-13}$.
+2. `validate_panda_s1`: **PASS** (`pass: true`). Paridad con Versión A: FK $4.09\times 10^{-16}$, jacobianos $1.80\times 10^{-15}$, masa $9.42\times 10^{-15}\text{ kg}\cdot\text{m}^2$, RNEA $1.48\times 10^{-14}\text{ N}\cdot\text{m}$, dinámica directa $2.44\times 10^{-13}\text{ rad/s}^2$, energía $4.35\times 10^{-14}\text{ J}$.
+3. `test_s1_geometry_limits`: **PASS** (`pass: 1`). Pasan todas las pruebas de arcos, topes, derivada de Lie, $S^1$ desacoplado y vectores no unitarios/degenerados.
+4. `test_s1_simulation_consistency`: **PASS** (`pass: true`). Paridad en simulación nominal $q$ endpoint $8.33\times 10^{-16}\text{ rad}$, balance energético de Versión B $9.99\times 10^{-11}\text{ J}$ ($h = 1\text{ ms}$) y $5.77\times 10^{-12}\text{ J}$ ($h = 0.25\text{ ms}$), drift de norma en 500 pasos RK4-MK $2.22\times 10^{-16}$ ($1\,\text{ulp}$), superación de singularidades de branch-cut en J6 y saltos topológicos de `box_diff`.
+5. `test_source_geometry`: **PASS** (`pass: 1`).
+6. `test_simulation_inputs`: **PASS** (`pass: 1`).
+
+### 2. Integridad y Preservación de la Versión A
+
+- `git diff main -- +panda/` arrojó 0 diferencias: la implementación canónica original de dinámica en coordenadas articulares permanece completamente intacta e inmutable.
+
+### 3. Integración en `main` y Publicación Remota
+
+- Fusión limpia sin avance rápido (`--no-ff`) de la rama `review/s1-scientific-polish` en `main`.
+- Publicación (`git push`) de ambas ramas en `origin`.
+- Auditoría remota de renderizado de `https://github.com/johnnyzxc5/Franka-Panda-Geometric-Simulator`.
+
+
