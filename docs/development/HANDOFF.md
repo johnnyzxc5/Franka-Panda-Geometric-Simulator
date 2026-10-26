@@ -27,8 +27,8 @@
 | Hito | Descripción | Modelo Sugerido | Estado | Fecha / Nota |
 |:---:|---|:---:|:---:|---|
 | **HITO R0** | **Diagnóstico inicial y auditoría crítica de problemas** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Diagnóstico de problemas A, B, C, D, README y tests (`9caddba`). |
-| **HITO R1** | **Revisión matemática y científica** | **Argon / Astra** | **COMPLETADO** | 26-Oct-2026. Análisis formal de límites, energía, estructura polinomial/racional y criterios para R2. |
-| **HITO R2** | **Correcciones de código, tests y benchmarks** | **Flash 3.8 High** | **PENDIENTE** | Implementar validación $S^1$ en `check_limits`, desacoplar test energético y muestreo físico acotado. |
+| **HITO R1** | **Revisión matemática y científica** | **Argon / Astra** | **COMPLETADO** | 26-Oct-2026. Análisis formal de límites, energía, estructura polinomial/racional y criterios para R2 (`80106bf`). |
+| **HITO R2** | **Correcciones de código, tests y benchmarks** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Validación $S^1$ desacoplada, test energético intrínseco, muestreo físico admisible 100%. |
 | **HITO R3** | **Auditoría científica de las correcciones** | **Argon / Astra** | **PENDIENTE** | Verificar independientemente las correcciones de R2 y aprobar conclusiones para el README. |
 | **HITO R4** | **README, LaTeX, presentación y animaciones** | **Flash 3.8 High** | **PENDIENTE** | Corregir renderizado matemático GFM, tablas, ecuaciones en bloque y recursos visuales. |
 | **HITO R5** | **Validación y publicación final en GitHub** | **Flash 3.8 High** | **PENDIENTE** | Suite completa de validación, integración en `main`, push y comprobación remota real. |
@@ -45,51 +45,36 @@
 ---
 
 ### Hito R1 — Revisión Matemática y Científica
-* **Estado:** **COMPLETADO**
+* **Estado:** **COMPLETADO** (`80106bf`)
 * **Responsable:** Gemini 4 Argon
-* **Archivos inspeccionados:**
-  - `+panda_s1/check_limits.m`, `+panda_s1/config_matrix.m`, `+panda_s1/box_diff.m`, `+panda_s1/geodesic_diff.m`, `+panda_s1/screw_exp.m`, `+panda_s1/simulate.m`
-  - `third_party/modern_robotics/MatrixExp6.m`
-  - `tests/test_s1_geometry_limits.m`, `tests/test_s1_simulation_consistency.m`
-  - `tools/benchmark_s1_comparison.m`, `results/benchmark_s1_comparison.json`
-  - `docs/development/MATHEMATICAL_FORMULATION.md`, `docs/development/INTEGRATION_AND_CONSTRAINTS.md`, `docs/development/SCIENTIFIC_REVIEW_HITO6.md`, `docs/development/POST_RELEASE_REVIEW.md`
-* **Hallazgos verificados:**
-  1. **Geometría de límites y patología fuera de $S^1$:**
-     - Como $0 < h_i \le 2.8973 < \pi$ en las 7 articulaciones, $u_i^\top x_i \ge \cos h_i$ es exacta **sobre $S^1$** ($x_i^\top x_i = 1$).
-     - Fuera de $S^1$, $u_i^\top x_i \ge \cos h_i$ define un semiplano afín en $\mathbb{R}^2$: en articulaciones con $2h_i > \pi$ ($\cos h_i < 0$), el vector nulo $x_1 = (0,0)^\top$ o el vector antipodal escalado $x_1 = -0.5\,u_1$ (que apunta a la mitad del tope mecánico prohibido $\delta_1 = \pi$) producen $u_1^\top x_1 \ge -0.9703$ y son clasificados falsamente como `in_limits = true` por el código actual.
-  2. **Garantías de `box_diff` vs. `simulate.m`:**
-     - `box_diff` levanta el ángulo mediante la carta centrada en $u_i$ (con corte en $-u_i \in S^1 \setminus \mathcal{A}_i$, a $\ge 14.0^\circ$ de distancia del borde admisible). Garantiza que la interpolación de referencia quíntica $X_{\text{ref}}(t)$ permanezca idénticamente en $\mathcal{A}$ y que el término proporcional PD nunca apunte a través del tope prohibido.
-     - En cambio, el sistema mecánico de segundo orden en `simulate.m` **no posee invariancia dinámica hacia adelante** en $\mathcal{A} \times \mathbb{R}^7$ ante velocidades iniciales elevadas, saturación de par o perturbaciones externas: `simulate.m` monitoriza las etapas RK4-MK pero no aplica contacto unilateral ni barreras CBF.
-  3. **Descomposición causal de la mejora energética ($5,621\times$):**
-     - `MatrixExp6.m` recibe `se3mat = VecTose3(S_i * q_i)` acoplado y divide por $\theta = |q_i|$; para evitar $0/0$ usa `NearZero(norm(omgtheta)) < 1e-6`, reemplazando $R_i(q_i)$ por $I_3$ y truncando el término lineal $q_i[\omega_i]_\times$. Al cruzar $|q_i| = 10^{-6}\text{ rad}$ en $k=3$ ($q_1(0)=q_3(0)=q_5(0)=0$), introduce un salto fijo de $5.6218 \times 10^{-7}\text{ J}$ en $V(q)$.
-     - La eliminación de ese salto ($5.62\times 10^{-7}\text{ J} \to 1.00\times 10^{-10}\text{ J}$) proviene de evaluar $R_i$ de forma algebraica suave en $(\cos q_i, \sin q_i)$ sobre el eje unitario conocido $\omega_i$ (logrado tanto por `Variant B-alg` como por `Version B`), y no del cambio de variedad por sí solo.
-     - Además, RK4-MK es un integrador de grupo de Lie explícito de orden 4 (preserva $\|x_i\|_2 = 1$ a $2.22\times 10^{-16}$), pero no es un integrador variacional simpléctico; conserva la energía con orden $O(h^4)$.
-  4. **Estructura algebraica (polinomial vs. racional) e hipótesis del Teorema 3.1:**
-     - La exponencial de tornillo, las poses `fk`/`frames`, los jacobianos $J_s, J_b$, la energía, $M(X)$ y el RNEA de dinámica inversa (sin la fricción hiperbólica $\tanh$) son **polinomiales** en $(c_i, s_i)$.
-     - La dinámica directa $\dot{\omega} = M(X)^{-1}(\tau - b)$ es una **función racional** globalmente analítica en $(c_i, s_i)$ (no un polinomio).
-     - La identidad algebraica $\exp([S], x) = I_4 + s[S] + (1-c)[S]^2$ requiere $\|\omega\|_2 = 1$ y paso helicoidal nulo $\omega^\top v = 0$; para tornillos helicoidales ($\omega^\top v \ne 0$) aparece el término no periódico $(q-s)(\omega^\top v)\omega$ que requiere elegir una carta $q(x)$.
-  5. **Auditoría empírica del muestreo del benchmark (`seed = 13102026, N = 100`):**
-     - Se comprobó en MATLAB que `DQ = randn(7, N) .* (0.35 * m.dqmax)` genera **4 muestras que exceden el límite físico $\dot{q}_{\max}$**, llegando a $\max |\dot{q}_i| / \dot{q}_{\max,i} = 1.223076$, mientras `TAU` alcanza $0.998293\,\tau_{\max}$.
-* **Decisiones y especificaciones obligatorias para Hito R2 (Flash 3.8 High):**
-  1. **Actualizar `+panda_s1/check_limits.m` y `+panda_s1/config_matrix.m`:**
-     - Evaluar `on_manifold = (abs(sum(X.^2, 1)' - 1) <= tol_norm)` y normalizar $\hat{x}_i = x_i / \|x_i\|_2$ (con manejo seguro de $\|x_i\|_2 \le \text{eps}$) antes de evaluar `in_arc = (u_dot_x_hat >= m.cos_half - tol) & (margins >= -tol)`.
-     - Definir `in_limits = on_manifold & in_arc` y exponer `on_manifold`, `in_arc` y `unit_norm_error` en `report`.
-     - Añadir en `tests/test_s1_geometry_limits.m` pruebas explícitas con vectores fuera de $S^1$ ($x_i = 0$, $x_i = -0.5\,u_i$, $x_i = 0.5\,x_{\text{borde}}$, $x_i = 2\,x_{\text{fuera}}$).
-  2. **Precisar docstrings en `+panda_s1/simulate.m` y `+panda_s1/box_diff.m`:**
-     - Distinguir entre admisibilidad cinemática de la referencia/error PD y monitorización pasiva de etapas RK4 sin invariancia dinámica garantizada.
-  3. **Desacoplar el test energético en `tests/test_s1_simulation_consistency.m`:**
-     - Sustituir `assert(nom_energy_err_a / nom_energy_err_b > 5000)` por aserciones intrínsecas sobre la Versión B: `assert(nom_energy_err_b < 5e-10)` y orden empírico `assert(log2(nom_energy_err_b / nom_energy_err_b_fine) > 3.8)`, conservando el ratio respecto a la Versión A en el struct `report` como dato informativo.
-  4. **Muestreo físicamente admisible en `tools/benchmark_s1_comparison.m`:**
-     - Reemplazar las gaussianas no acotadas por muestreo normal truncado por rechazo dentro del sobre físico admisible ($|\dot{q}_i| \le 0.95\,\dot{q}_{\max,i}$, $|\tau_i| \le 0.95\,\tau_{\max,i}$, $|\ddot{q}_i| \le 10\text{ rad/s}^2$), verificando con `assert` que 0 muestras violan los límites.
-     - Ejecutar el benchmark actualizado y guardar los nuevos artefactos en `results/`.
-* **Archivos modificados en Hito R1:**
-  - `docs/development/POST_RELEASE_REVIEW.md` (Parte II añadida con la revisión matemática completa).
-  - `docs/development/HANDOFF.md`
-* **Tests y comprobaciones ejecutados:**
-  - Verificación cuantitativa en MATLAB R2026a de los ratios de exceso de límites del muestreo actual (`max |DQ|/dqmax = 1.223076`, 4 violaciones).
+* **Resumen:** Análisis formal de límites, patologías en $\mathbb{R}^2 \setminus S^1$, delimitación de garantías de `box_diff` vs. falta de invariancia dinámica en `simulate.m`, atribución del factor $5,621\times$ de energía a la eliminación de `NearZero` en `MatrixExp6` mediante la evaluación algebraica suave en $(\cos q_i, \sin q_i)$, clasificación de operaciones polinomiales vs. racionales, y auditoría empírica del benchmark que detectó 4 violaciones a $\dot{q}_{\max}$.
+
+---
+
+### Hito R2 — Correcciones de Código, Tests y Benchmarks
+* **Estado:** **COMPLETADO**
+* **Responsable:** Flash 3.8 High
+* **Archivos modificados:**
+  - `+panda_s1/check_limits.m`: Desacopla la pertenencia a la variedad `on_manifold = (|x_i^T x_i - 1| <= tol_norm)` de la desigualdad de arco evaluada sobre la dirección normalizada $\hat{x}_i = x_i / \|x_i\|_2$ (`in_arc`). Define `in_limits = on_manifold & in_arc`.
+  - `+panda_s1/config_matrix.m`: Lanza error explícito `panda_s1:config_matrix_degenerate` si alguna columna tiene norma nula al pasar `tol`.
+  - `+panda_s1/simulate.m` y `+panda_s1/box_diff.m`: Docstrings actualizados para delimitar la consistencia homotópica cinemática de la referencia frente a la monitorización pasiva de etapas RK4 sin invocar invariancia dinámica ni contacto rígido.
+  - `setup_panda.m`: Añadidas carpetas `tests/` y `tools/` al path.
+  - `tests/test_s1_geometry_limits.m`: Añadida Sección 3b con 5 pruebas exhaustivas para entradas fuera de $S^1$ (vector nulo, antipodal escalado a la mitad del tope prohibido, normas escaladas $\lambda = 0.5$ y $2.0$, y columna degenerada).
+  - `tests/test_s1_simulation_consistency.m`: Desacoplada la aserción de energía sustituyendo el cociente $> 5000$ por cotas intrínsecas sobre la Versión B (`nom_energy_err_b < 5e-10` y orden empírico `nom_energy_err_b / nom_energy_err_b_fine > 14`), preservando el ratio relativo en `report`.
+  - `tools/benchmark_s1_comparison.m`: Implementado muestreo normal truncado por rechazo en $DQ$ y $TAU$ dentro del 95 % de los límites físicos ($\max |\dot{q}_i|/\dot{q}_{\max,i} = 0.9459$, $\max |\tau_i|/\tau_{\max,i} = 0.9277$, **0 violaciones físicas**). Añadidas aserciones explícitas de sobre físico y exportación de la figura a `docs/assets/benchmark_s1_comparison.png`.
+  - `results/benchmark_s1_comparison.json`, `.mat`, `.png`: Re-generados y verificados.
+  - `docs/development/POST_RELEASE_REVIEW.md`: Parte III completada con los resultados detallados.
+* **Resultados de Tests en MATLAB R2026a:**
+  - `validate_panda`: **PASS** (Versión A intacta)
+  - `validate_panda_s1`: **PASS**
+  - `test_s1_geometry_limits`: **PASS**
+  - `test_s1_simulation_consistency`: **PASS**
+  - `test_source_geometry`: **PASS**
+  - `test_simulation_inputs`: **PASS**
+  - `benchmark_s1_comparison`: **PASS** (100% de muestras dentro del sobre físico)
 * **Próxima acción exacta:**
-  - **HITO R2 (Flash 3.8 High):** Implementar las 4 correcciones de código, tests y benchmarks especificadas arriba, ejecutar toda la suite de validación y el benchmark en MATLAB, y actualizar los artefactos en `results/`.
-* **Bloqueos o incertidumbres:** Ninguno.
+  - **HITO R3 (Argon / Astra):** Auditoría científica independiente de las correcciones implementadas en R2, revisión de consistencia física y aprobación formal de las conclusiones para el README y la publicación.
+* **Bloqueos o incertidumbres:** Ninguno. Repositorio completamente funcional y validado.
 
 ---
 

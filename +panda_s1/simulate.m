@@ -5,7 +5,10 @@ function log = simulate(m, c)
 % Unit-norm constraints ||x_i|| = 1 are preserved to machine precision without
 % phase distortion via Algorithm 6.1 (Abelian Munthe-Kaas RK4).
 % Reference interpolation and PD tracking use the homotopy-consistent admissible
-% arc operator box_diff so that trajectories never traverse forbidden stops.
+% arc operator box_diff to ensure reference paths and error vectors remain
+% inside the admissible homotopy class. Integration stage margins and potential
+% stop violations are monitored at all RK4 substeps without asserting dynamic
+% control-barrier invariance or hard-contact restitution mechanics.
 %
 % Inputs:
 %   m: (optional) model struct from panda_s1.model()
