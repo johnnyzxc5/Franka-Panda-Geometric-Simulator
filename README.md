@@ -13,12 +13,12 @@ Both formulations share identical identified physical parameters from Gaz et al.
 | Version A — Original Joint Coordinates ($q \in \mathbb{R}^7$) | Version B — Global Lie-Group on $(S^1)^7$ |
 |:---:|:---:|
 | ![Version A](docs/assets/panda_version_a.gif) | ![Version B](docs/assets/panda_version_b.gif) |
-| *Spatial PoE $\exp([S_i]q_i)$, $\mathbb{R}^7$ angles, SHAPE RNEA* | *Global embedding $X \in (S^1)^7$, algebraic $\exp([S_i], x_i)$, Lie RK4-MK* |
+| Spatial PoE $\exp([S_i] q_i)$, $\mathbb{R}^7$ angles, SHAPE RNEA | Global embedding $X \in (S^1)^7$, algebraic $\exp([S_i], x_i)$, Lie RK4-MK |
 
 ### Combined Side-by-Side Simulation
 ![Side-by-Side Simulation](docs/assets/panda_comparison_side_by_side.gif)
 
-*3.6 s closed-loop quintic trajectory with computed torque control: desired trajectory (dashed teal) and executed end-effector path (orange for Version A, green for Version B). The trajectories coincide to within $8.33 \times 10^{-16}\text{ rad}$ ($< 1\,\text{ulp}$) at the final state.*
+3.6 s closed-loop quintic trajectory with computed torque control: desired trajectory (dashed teal) and executed end-effector path (orange for Version A, green for Version B). The trajectories coincide to within $8.33 \times 10^{-16}\text{ rad}$ ($< 1\text{ ulp}$) at the final state.
 
 ---
 
@@ -31,12 +31,12 @@ Both formulations share identical identified physical parameters from Gaz et al.
 | **Tangent Space** | $T \mathbb{R}^7 \cong \mathbb{R}^7 \times \mathbb{R}^7$ | $T(S^1)^7 \cong (S^1)^7 \times \mathbb{R}^7$ (Global left trivialization) |
 | **Space Screw Exponential** | $\exp([S_i] q_i) \in SE(3)$ via series / Rodrigues (`MatrixExp6`) | $\exp([S_i], x_i) = I_4 + s_i [S_i] + (1 - c_i) [S_i]^2$ ([Theorem 3.1](#core-geometric-equations-on-s17): purely algebraic) |
 | **Link Transformations** | $T_{0,i} = T_{0,i-1} M_i \exp([a_i] q_i)$, with $a_i = [0, 0, 1, 0, 0, 0]^\top$ | $T_{0,i} = T_{0,i-1} M_i T_z(x_i)$, with $T_z(x_i) = \mathrm{diag}(R_z(x_i), 1)$ (zero transcendental calls) |
-| **Inter-Link Adjoints (RNEA)** | $\mathrm{Ad}_{T_{i,i-1}} = \mathrm{Ad}(\exp(-[A_i] q_i) M_i^{-1})$ via dense `Adjoint` | $\mathrm{Ad}_{T_{i,i-1}}(x_i) = \mathrm{diag}(R_z(x_i)^\top, R_z(x_i)^\top) B^{(i)}$ ([Eq. 3](#core-geometric-equations-on-s17)) |
+| **Inter-Link Adjoints (RNEA)** | Recursive PoE adjoints $\mathrm{Ad}_{T_{i,i-1}}$ via dense `Adjoint` | Hoisted matrix-free product $\mathrm{Ad}_{T_{i,i-1}}(x_i)$ ([Eq. 3](#core-geometric-equations-on-s17)) |
 | **Algebraic Character** | Involves trigonometric calls (`cos`, `sin`) at every joint | **Polynomial in $(c_i, s_i)$** for FK, Jacobians, and RNEA; **rational in $(c_i, s_i)$** for FD |
 | **Equations of Motion** | $M(q)\ddot{q} + c(q, \dot{q}) + g(q) = \tau$ | $M(X)\dot{\omega} + c(X, \omega) + g(X) = \tau$ (Lee et al. 2018, Eq. 4.12) |
 | **Numerical Integration** | Classical 4-stage Runge–Kutta (RK4) in $\mathbb{R}^{14}$ | Abelian Munthe–Kaas 4-stage Lie-group RK4 (RK4-MK) with 1-ulp radial normalization |
 | **Joint Limit Representation** | Box bounds: $q_{\min,i} \le q_i \le q_{\max,i}$ | Algebraic arc constraint: $x_i^\top x_i = 1$ and $u_i^\top \hat{x}_i \ge \cos h_i$ ([Eq. 4](#core-geometric-equations-on-s17)) |
-| **Large-Displacement Error** | $q_{\text{ref},i} - q_i \in \mathbb{R}$ | Homotopy-consistent admissible-arc displacement $\Delta q_{\mathcal{A}} = \text{box\_diff}(X_{\text{ref}}, X, m)$ |
+| **Large-Displacement Error** | Joint coordinate difference $q_{\text{ref}} - q \in \mathbb{R}^7$ | Homotopy-consistent admissible-arc displacement $\Delta q_{\mathcal{A}}$ via `box_diff(X_ref, X, m)` |
 
 ### Core Geometric Equations on $(S^1)^7$
 
@@ -79,9 +79,9 @@ where $m_i = \frac{1}{2}(q_{\min,i} + q_{\max,i})$ and $\hat{x}_i = x_i / \|x_i\
 Evaluated on **MATLAB R2026a Update 4** across $N = 100$ independent states ($1,000$ timed evaluations per routine) with CPU warm-up.
 
 All states are sampled strictly inside the **physically admissible operating envelope** of the Franka Emika Panda via bounded uniform position sampling and rejection-truncated normal sampling:
-- Position utilization: $\max_{i,k} |q_{i,k} - m_i|/h_i = 0.9686 \le 1.00$ ($0$ violations)
-- Velocity utilization: $\max_{i,k} |\dot{q}_{i,k}|/\dot{q}_{\max,i} = 0.9459 \le 0.95$ ($0$ violations)
-- Torque utilization: $\max_{i,k} |\tau_{i,k}|/\tau_{\max,i} = 0.9277 \le 0.95$ ($0$ violations)
+- **Position Bounds:** $\max_i |q_i - m_i|/h_i = 0.9686 \le 1.00$ ($0$ violations across all 100 states)
+- **Velocity Bounds:** $\max_i |\dot{q}_i|/\dot{q}_{\max,i} = 0.9459 \le 0.95$ ($0$ violations across all 100 states)
+- **Torque Bounds:** $\max_i |\tau_i|/\tau_{\max,i} = 0.9277 \le 0.95$ ($0$ violations across all 100 states)
 
 To separate **algorithmic specialization** (revolute $z$-axis rotations and hoisted adjoints) from the **manifold representation** ($X \in (S^1)^7$ vs. $q \in \mathbb{R}^7$), the benchmark includes **Variant B-alg** ($q \in \mathbb{R}^7 \mapsto [\cos q^\top; \sin q^\top]$ + specialized $S^1$ kernels).
 
@@ -127,7 +127,7 @@ Because rotations are evaluated algebraically in terms of $x_i = [c_i, s_i]^\top
 All 7 Panda joints have finite limits with span $2h_i < 2\pi$. However, **6 out of 7 joints have span $2h_i > \pi$**.
 - When $|\Delta q_i| > \pi$, the shortest geodesic on $S^1$ (`geodesic_diff`) points **across the forbidden mechanical stop** (experimentally verified to cause a $0.2433\text{ rad}$ stop violation on Joint 1).
 - Version B solves this via the homotopy-consistent admissible-arc displacement `box_diff(X2, X1, m)`, which lifts $x_i$ into the reference frame of the arc midpoint $u_i = [\cos m_i, \sin m_i]^\top$. This guarantees that the branch cut lies at $m_i \pm \pi \in S^1 \setminus \mathcal{A}_i$, enabling completely smooth traversal of the $+\pi$ boundary on Joint 6 ($[-0.0175, +3.7525]\text{ rad}$) with zero limit violations.
-- **Monitoring vs. Dynamic Invariance:** `check_limits.m` validates both $S^1$ manifold membership ($|x_i^\top x_i - 1| \le \text{tol}_{\text{norm}}$) and the normalized arc inequality ($u_i^\top \hat{x}_i \ge \cos h_i$). The simulator monitors stage margins at all RK4 substeps (`minimum_stage_limit_margin_rad`, `maximum_stage_limit_violation_rad`) and saturates command torques at $\pm\tau_{\max}$, without asserting dynamic forward invariance (viability) or contact collision mechanics.
+- **Monitoring vs. Dynamic Invariance:** `check_limits.m` validates both $S^1$ manifold membership ($\|x_i\|_2 = 1$ within numerical tolerance) and the normalized arc inequality $u_i^\top \hat{x}_i \ge \cos h_i$ (without angle lifting). The simulator monitors stage margins at all RK4 substeps (`minimum_stage_limit_margin_rad`, `maximum_stage_limit_violation_rad`) and saturates command torques at $\pm \tau_{\max}$, without asserting dynamic forward invariance (viability) or contact collision mechanics.
 
 ### 3. Decomposition: Algorithmic Specialization vs. Manifold Representation
 Comparing Version B with Variant B-alg reveals that **$\sim 88\%\text{--}95\%$ of the execution speedup** over Version A comes from Theorem 3.1 and the hoisted adjoint factorization $B^{(i)} = \mathrm{Ad}_{M_i^{-1}}$ (which also benefits $q \in \mathbb{R}^7$). Storing $X \in (S^1)^7$ directly provides an **additional 3%–12% speedup** in individual kinematics and inverse dynamics calls by eliminating runtime `cos(q)` and `sin(q)` calls, while closed-loop simulation shows a minor 3.2% overhead ($2,091.79\text{ ms}$ vs. $2,158.82\text{ ms}$) due to the 4 Lie-group `exp_s1` stage updates per RK4-MK substep.
