@@ -30,8 +30,8 @@ Both formulations share identical identified physical parameters from Gaz et al.
 | **Velocity State** | $\dot{q} \in \mathbb{R}^7$ | Left-trivialized angular velocity $\omega \in \mathbb{R}^7$, with $\dot{x}_i = \omega_i J x_i$ ([Eq. 1](#core-geometric-equations-on-s17)) |
 | **Tangent Space** | $T \mathbb{R}^7 \cong \mathbb{R}^7 \times \mathbb{R}^7$ | $T(S^1)^7 \cong (S^1)^7 \times \mathbb{R}^7$ (Global left trivialization) |
 | **Space Screw Exponential** | $\exp([S_i] q_i) \in SE(3)$ via series / Rodrigues (`MatrixExp6`) | $\exp([S_i], x_i) = I_4 + s_i [S_i] + (1 - c_i) [S_i]^2$ ([Theorem 3.1](#core-geometric-equations-on-s17): purely algebraic) |
-| **Link Transformations** | $T_{0,i} = T_{0,i-1} M_i \exp([a_i] q_i)$, with $a_i = [0, 0, 1, 0, 0, 0]^\top$ | $T_{0,i} = T_{0,i-1} M_i T_z(x_i)$, with $T_z(x_i) = \operatorname{diag}(R_z(x_i), 1)$ (zero transcendental calls) |
-| **Inter-Link Adjoints (RNEA)** | $\operatorname{Ad}_{T_{i,i-1}} = \operatorname{Ad}(\exp(-[A_i] q_i) M_i^{-1})$ via dense `Adjoint` | $\operatorname{Ad}_{T_{i,i-1}}(x_i) = \operatorname{diag}(R_z(x_i)^\top, R_z(x_i)^\top) B^{(i)}$ ([Eq. 3](#core-geometric-equations-on-s17)) |
+| **Link Transformations** | $T_{0,i} = T_{0,i-1} M_i \exp([a_i] q_i)$, with $a_i = [0, 0, 1, 0, 0, 0]^\top$ | $T_{0,i} = T_{0,i-1} M_i T_z(x_i)$, with $T_z(x_i) = \mathrm{diag}(R_z(x_i), 1)$ (zero transcendental calls) |
+| **Inter-Link Adjoints (RNEA)** | $\mathrm{Ad}_{T_{i,i-1}} = \mathrm{Ad}(\exp(-[A_i] q_i) M_i^{-1})$ via dense `Adjoint` | $\mathrm{Ad}_{T_{i,i-1}}(x_i) = \mathrm{diag}(R_z(x_i)^\top, R_z(x_i)^\top) B^{(i)}$ ([Eq. 3](#core-geometric-equations-on-s17)) |
 | **Algebraic Character** | Involves trigonometric calls (`cos`, `sin`) at every joint | **Polynomial in $(c_i, s_i)$** for FK, Jacobians, and RNEA; **rational in $(c_i, s_i)$** for FD |
 | **Equations of Motion** | $M(q)\ddot{q} + c(q, \dot{q}) + g(q) = \tau$ | $M(X)\dot{\omega} + c(X, \omega) + g(X) = \tau$ (Lee et al. 2018, Eq. 4.12) |
 | **Numerical Integration** | Classical 4-stage Runge–Kutta (RK4) in $\mathbb{R}^{14}$ | Abelian Munthe–Kaas 4-stage Lie-group RK4 (RK4-MK) with 1-ulp radial normalization |
@@ -56,10 +56,10 @@ $$
 
 #### 3. Hoisted Adjoint Homomorphism Factorization in Spatial RNEA
 
-Precomputing constant inverse link adjoints $B^{(i)} = \operatorname{Ad}_{M_i^{-1}}$ allows evaluating inter-link adjoints without matrix inversion or dense multiplications:
+Precomputing constant inverse link adjoints $B^{(i)} = \mathrm{Ad}_{M_i^{-1}}$ allows evaluating inter-link adjoints without matrix inversion or dense multiplications:
 
 $$
-\operatorname{Ad}_{T_{i,i-1}}(x_i) = \operatorname{diag}\!\left(R_z(x_i)^\top, R_z(x_i)^\top\right) B^{(i)}
+\mathrm{Ad}_{T_{i,i-1}}(x_i) = \mathrm{diag}\left(R_z(x_i)^\top, R_z(x_i)^\top\right) B^{(i)}
 $$
 
 #### 4. Algebraic Characterization of the Admissible Joint Arc ($0 < h_i < \pi$)
@@ -67,7 +67,7 @@ $$
 Because all 7 Panda joints satisfy $0 < h_i = \frac{1}{2}(q_{\max,i} - q_{\min,i}) \le 2.8973 < \pi$, the admissible arc $\mathcal{A}_i \subset S^1$ is exact and unambiguous:
 
 $$
-\mathcal{A}_i = \left\{ x_i \in \mathbb{R}^2 \;\middle|\; x_i^\top x_i = 1,\;\; u_i^\top \hat{x}_i \ge \cos h_i \right\}, \qquad u_i = \begin{bmatrix} \cos m_i \\ \sin m_i \end{bmatrix} \in S^1
+\mathcal{A}_i = \left\\{ x_i \in \mathbb{R}^2 \mid x_i^\top x_i = 1, \quad u_i^\top \hat{x}_i \ge \cos h_i \right\\}, \qquad u_i = \begin{bmatrix} \cos m_i \\ \sin m_i \end{bmatrix} \in S^1
 $$
 
 where $m_i = \frac{1}{2}(q_{\min,i} + q_{\max,i})$ and $\hat{x}_i = x_i / \|x_i\|_2$.
@@ -130,7 +130,7 @@ All 7 Panda joints have finite limits with span $2h_i < 2\pi$. However, **6 out 
 - **Monitoring vs. Dynamic Invariance:** `check_limits.m` validates both $S^1$ manifold membership ($|x_i^\top x_i - 1| \le \text{tol}_{\text{norm}}$) and the normalized arc inequality ($u_i^\top \hat{x}_i \ge \cos h_i$). The simulator monitors stage margins at all RK4 substeps (`minimum_stage_limit_margin_rad`, `maximum_stage_limit_violation_rad`) and saturates command torques at $\pm\tau_{\max}$, without asserting dynamic forward invariance (viability) or contact collision mechanics.
 
 ### 3. Decomposition: Algorithmic Specialization vs. Manifold Representation
-Comparing Version B with Variant B-alg reveals that **$\sim 88\%\text{--}95\%$ of the execution speedup** over Version A comes from Theorem 3.1 and the hoisted adjoint factorization $B^{(i)} = \operatorname{Ad}_{M_i^{-1}}$ (which also benefits $q \in \mathbb{R}^7$). Storing $X \in (S^1)^7$ directly provides an **additional 3%–12% speedup** in individual kinematics and inverse dynamics calls by eliminating runtime `cos(q)` and `sin(q)` calls, while closed-loop simulation shows a minor 3.2% overhead ($2,091.79\text{ ms}$ vs. $2,158.82\text{ ms}$) due to the 4 Lie-group `exp_s1` stage updates per RK4-MK substep.
+Comparing Version B with Variant B-alg reveals that **$\sim 88\%\text{--}95\%$ of the execution speedup** over Version A comes from Theorem 3.1 and the hoisted adjoint factorization $B^{(i)} = \mathrm{Ad}_{M_i^{-1}}$ (which also benefits $q \in \mathbb{R}^7$). Storing $X \in (S^1)^7$ directly provides an **additional 3%–12% speedup** in individual kinematics and inverse dynamics calls by eliminating runtime `cos(q)` and `sin(q)` calls, while closed-loop simulation shows a minor 3.2% overhead ($2,091.79\text{ ms}$ vs. $2,158.82\text{ ms}$) due to the 4 Lie-group `exp_s1` stage updates per RK4-MK substep.
 
 ---
 
