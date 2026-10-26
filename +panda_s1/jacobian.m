@@ -1,6 +1,9 @@
 function J = jacobian(X, m, frame)
 %JACOBIAN Space or flange-body twist Jacobian on (S1)^7, rows [angular; linear].
 %
+% Evaluates the twist Jacobian purely algebraically on (S1)^7 via Theorem 3.1
+% without lifting to joint angles q or calling cos/sin/atan2.
+%
 % Inputs:
 %   X: 2-by-7 configuration matrix on (S1)^7
 %   m: (optional) model struct from panda_s1.model()
@@ -16,14 +19,30 @@ if nargin < 2 || isempty(m)
 end
 
 X = panda_s1.config_matrix(X);
-q = panda_s1.to_q(X, m);
-J = JacobianSpace(m.Slist, q);
+J = m.Slist;
+T = eye(4);
+has_mid = isfield(m, 'umid') && isfield(m, 'qmid');
+
+for i = 2:m.n
+    if has_mid
+        Ti = panda_s1.screw_exp(m.Slist(:, i - 1), X(:, i - 1), m.umid(:, i - 1), m.qmid(i - 1));
+    else
+        Ti = panda_s1.screw_exp(m.Slist(:, i - 1), X(:, i - 1));
+    end
+    T = T * Ti;
+    J(:, i) = Adjoint(T) * m.Slist(:, i);
+end
 
 switch char(frame)
     case 'space'
     case 'body'
-        T = panda_s1.fk(X, m);
-        J = Adjoint(TransInv(T)) * J;
+        if has_mid
+            Tn = panda_s1.screw_exp(m.Slist(:, m.n), X(:, m.n), m.umid(:, m.n), m.qmid(m.n));
+        else
+            Tn = panda_s1.screw_exp(m.Slist(:, m.n), X(:, m.n));
+        end
+        T_flange = T * Tn * m.home;
+        J = Adjoint(TransInv(T_flange)) * J;
     otherwise
         error('panda_s1:frame', 'Frame must be space or body');
 end

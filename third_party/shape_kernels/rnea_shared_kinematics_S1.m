@@ -1,10 +1,10 @@
 function kin = rnea_shared_kinematics_S1(X, Mlist, Slist, mode)
-%RNEA_SHARED_KINEMATICS_S1 Exact Lie kinematics on (S1)^7 with invariant hoisting and S^1 caching.
+%RNEA_SHARED_KINEMATICS_S1 Exact Lie kinematics on (S1)^7 with Adjoint hoisting and S^1 caching.
 %
-% Replaces transcendental MatrixExp6 calls with direct algebraic SO(2)
-% rotations for pure-z joints, with automatic fallback for general screw axes.
-% Produces exact AdTi matrices consumed by InverseDynamicsSharedKinematics_MR
-% and MassMatrixZeroStateSharedKinematics_MR without code duplication.
+% For pure-z revolute joints (all 7 nominal Panda joints), exploits the Lie-group
+% homomorphism Ad_{T_z(x_i)^T * M_i^{-1}} = diag(R_z(x_i)^T, R_z(x_i)^T) * Ad_{M_i^{-1}},
+% eliminating MatrixExp6, VecTose3, Adjoint, TransToRp, and VecToso3 calls at runtime.
+% Includes automatic centered-lift screw_exp fallback for general or perturbed screws.
 %
 % Inputs:
 %   X: 2-by-7 configuration matrix on (S1)^7
@@ -12,8 +12,8 @@ function kin = rnea_shared_kinematics_S1(X, Mlist, Slist, mode)
 %   Slist: 6-by-n space screws
 %   mode: (optional) 'cached' (default), 'reset', 'stats', 'legacy'
 
-persistent cached_Mlist cached_Slist cached_n cached_Ai cached_invM cached_AdTi_end
-persistent cached_is_pure_z cached_X_u64 cached_kin
+persistent cached_Mlist cached_Slist cached_n cached_Ai cached_invM cached_Ad_invM cached_AdTi_end
+persistent cached_is_pure_z cached_qmid cached_umid cached_X_u64 cached_kin
 persistent stats_calls stats_hits stats_misses stats_rebuilds
 
 if isempty(stats_calls)
@@ -25,8 +25,9 @@ end
 
 if nargin >= 4 && strcmp(mode, 'reset')
     cached_Mlist = []; cached_Slist = []; cached_n = [];
-    cached_Ai = []; cached_invM = []; cached_AdTi_end = [];
-    cached_is_pure_z = []; cached_X_u64 = []; cached_kin = [];
+    cached_Ai = []; cached_invM = []; cached_Ad_invM = []; cached_AdTi_end = [];
+    cached_is_pure_z = []; cached_qmid = []; cached_umid = [];
+    cached_X_u64 = []; cached_kin = [];
     stats_calls = uint64(0); stats_hits = uint64(0);
     stats_misses = uint64(0); stats_rebuilds = uint64(0);
     kin = struct('Ai', zeros(6, 0), 'AdTi', zeros(6, 6, 0), 'n', 0);
@@ -41,6 +42,30 @@ end
 
 X = panda_s1.config_matrix(X);
 n = size(X, 2);
+
+% Default Panda arc midpoints for branch-cut-safe fallback on helical perturbations
+default_qmid = [0; 0; 0; -1.5708; 0; 1.8675; 0];
+if n ~= 7
+    default_qmid = zeros(n, 1);
+end
+default_umid = [cos(default_qmid)'; sin(default_qmid)'];
+
+if nargin >= 4 && strcmp(mode, 'legacy')
+    Mi = eye(4);
+    Ai = zeros(6, n);
+    AdTi = zeros(6, 6, n + 1);
+    AdTi(:, :, n + 1) = Adjoint(TransInv(Mlist(:, :, n + 1)));
+    for i = 1:n
+        Mi = Mi * Mlist(:, :, i);
+        Ai(:, i) = Adjoint(TransInv(Mi)) * Slist(:, i);
+        x_inv = [X(1, i); -X(2, i)];
+        u_inv = [default_umid(1, i); -default_umid(2, i)];
+        T_exp = panda_s1.screw_exp(Ai(:, i), x_inv, u_inv, -default_qmid(i));
+        AdTi(:, :, i) = Adjoint(T_exp * TransInv(Mlist(:, :, i)));
+    end
+    kin = struct('Ai', Ai, 'AdTi', AdTi, 'n', n);
+    return;
+end
 
 stats_calls = stats_calls + 1;
 
@@ -60,14 +85,18 @@ if need_rebuild
     Mi = eye(4);
     cached_Ai = zeros(6, n);
     cached_invM = zeros(4, 4, n);
+    cached_Ad_invM = zeros(6, 6, n);
     cached_is_pure_z = false(1, n);
     for i = 1:n
         Mi = Mi * Mlist(:, :, i);
         cached_Ai(:, i) = Adjoint(TransInv(Mi)) * Slist(:, i);
         cached_invM(:, :, i) = TransInv(Mlist(:, :, i));
-        cached_is_pure_z(i) = norm(cached_Ai(:, i) - [0; 0; 1; 0; 0; 0], inf) < 1e-10;
+        cached_Ad_invM(:, :, i) = Adjoint(cached_invM(:, :, i));
+        cached_is_pure_z(i) = norm(cached_Ai(:, i) - [0; 0; 1; 0; 0; 0], inf) < 1e-12;
     end
-    cached_AdTi_end = Adjoint(TransInv(Mlist(:, :, n+1)));
+    cached_AdTi_end = Adjoint(TransInv(Mlist(:, :, n + 1)));
+    cached_qmid = default_qmid;
+    cached_umid = default_umid;
     cached_X_u64 = [];
     cached_kin = [];
     stats_rebuilds = stats_rebuilds + 1;
@@ -85,25 +114,27 @@ end
 
 stats_misses = stats_misses + 1;
 
-AdTi = zeros(6, 6, n+1);
-AdTi(:, :, n+1) = cached_AdTi_end;
+AdTi = zeros(6, 6, n + 1);
+AdTi(:, :, n + 1) = cached_AdTi_end;
 
 for i = 1:n
     ci = X(1, i);
     si = X(2, i);
     if cached_is_pure_z(i)
-        % Exact algebraic SO(2) inverse rotation R_z(-q_i) = R_z(c_i, -s_i)
-        % T_inv = [c_i, s_i, 0, 0; -s_i, c_i, 0, 0; 0, 0, 1, 0; 0, 0, 0, 1] * cached_invM
-        invM = cached_invM(:, :, i);
-        T_inv = [ ci * invM(1,:) + si * invM(2,:); ...
-                 -si * invM(1,:) + ci * invM(2,:); ...
-                  invM(3,:); ...
-                  invM(4,:) ];
-        AdTi(:, :, i) = Adjoint(T_inv);
+        % Exact Adjoint homomorphism: diag(R_z(x_i)^T, R_z(x_i)^T) * Ad_{M_i^{-1}}
+        B = cached_Ad_invM(:, :, i);
+        AdTi(:, :, i) = [ ci * B(1, :) + si * B(2, :); ...
+                         -si * B(1, :) + ci * B(2, :); ...
+                          B(3, :); ...
+                          ci * B(4, :) + si * B(5, :); ...
+                         -si * B(4, :) + ci * B(5, :); ...
+                          B(6, :) ];
     else
-        % General screw fallback (e.g. artificial perturbation in tests)
-        qi = atan2(si, ci);
-        AdTi(:, :, i) = Adjoint(MatrixExp6(VecTose3(cached_Ai(:, i) * -qi)) * cached_invM(:, :, i));
+        % General screw fallback (e.g. artificial geometry or screw perturbation in tests)
+        x_inv = [ci; -si];
+        u_inv = [cached_umid(1, i); -cached_umid(2, i)];
+        T_exp = panda_s1.screw_exp(cached_Ai(:, i), x_inv, u_inv, -cached_qmid(i));
+        AdTi(:, :, i) = Adjoint(T_exp * cached_invM(:, :, i));
     end
 end
 
