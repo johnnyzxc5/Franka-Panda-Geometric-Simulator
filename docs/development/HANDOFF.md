@@ -28,8 +28,8 @@
 |:---:|---|:---:|:---:|---|
 | **HITO R0** | **Diagnóstico inicial y auditoría crítica de problemas** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Diagnóstico de problemas A, B, C, D, README y tests (`9caddba`). |
 | **HITO R1** | **Revisión matemática y científica** | **Argon / Astra** | **COMPLETADO** | 26-Oct-2026. Análisis formal de límites, energía, estructura polinomial/racional y criterios para R2 (`80106bf`). |
-| **HITO R2** | **Correcciones de código, tests y benchmarks** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Validación $S^1$ desacoplada, test energético intrínseco, muestreo físico admisible 100%. |
-| **HITO R3** | **Auditoría científica de las correcciones** | **Argon / Astra** | **PENDIENTE** | Verificar independientemente las correcciones de R2 y aprobar conclusiones para el README. |
+| **HITO R2** | **Correcciones de código, tests y benchmarks** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Validación $S^1$ desacoplada, test energético intrínseco, muestreo físico admisible 100% (`bf2c12f`). |
+| **HITO R3** | **Auditoría científica de las correcciones** | **Argon / Astra** | **COMPLETADO** | 26-Oct-2026. Verificación independiente de las 8 comprobaciones y aprobación de conclusiones para el README. |
 | **HITO R4** | **README, LaTeX, presentación y animaciones** | **Flash 3.8 High** | **PENDIENTE** | Corregir renderizado matemático GFM, tablas, ecuaciones en bloque y recursos visuales. |
 | **HITO R5** | **Validación y publicación final en GitHub** | **Flash 3.8 High** | **PENDIENTE** | Suite completa de validación, integración en `main`, push y comprobación remota real. |
 
@@ -52,29 +52,36 @@
 ---
 
 ### Hito R2 — Correcciones de Código, Tests y Benchmarks
-* **Estado:** **COMPLETADO**
+* **Estado:** **COMPLETADO** (`bf2c12f`)
 * **Responsable:** Flash 3.8 High
-* **Archivos modificados:**
-  - `+panda_s1/check_limits.m`: Desacopla la pertenencia a la variedad `on_manifold = (|x_i^T x_i - 1| <= tol_norm)` de la desigualdad de arco evaluada sobre la dirección normalizada $\hat{x}_i = x_i / \|x_i\|_2$ (`in_arc`). Define `in_limits = on_manifold & in_arc`.
-  - `+panda_s1/config_matrix.m`: Lanza error explícito `panda_s1:config_matrix_degenerate` si alguna columna tiene norma nula al pasar `tol`.
-  - `+panda_s1/simulate.m` y `+panda_s1/box_diff.m`: Docstrings actualizados para delimitar la consistencia homotópica cinemática de la referencia frente a la monitorización pasiva de etapas RK4 sin invocar invariancia dinámica ni contacto rígido.
-  - `setup_panda.m`: Añadidas carpetas `tests/` y `tools/` al path.
-  - `tests/test_s1_geometry_limits.m`: Añadida Sección 3b con 5 pruebas exhaustivas para entradas fuera de $S^1$ (vector nulo, antipodal escalado a la mitad del tope prohibido, normas escaladas $\lambda = 0.5$ y $2.0$, y columna degenerada).
-  - `tests/test_s1_simulation_consistency.m`: Desacoplada la aserción de energía sustituyendo el cociente $> 5000$ por cotas intrínsecas sobre la Versión B (`nom_energy_err_b < 5e-10` y orden empírico `nom_energy_err_b / nom_energy_err_b_fine > 14`), preservando el ratio relativo en `report`.
-  - `tools/benchmark_s1_comparison.m`: Implementado muestreo normal truncado por rechazo en $DQ$ y $TAU$ dentro del 95 % de los límites físicos ($\max |\dot{q}_i|/\dot{q}_{\max,i} = 0.9459$, $\max |\tau_i|/\tau_{\max,i} = 0.9277$, **0 violaciones físicas**). Añadidas aserciones explícitas de sobre físico y exportación de la figura a `docs/assets/benchmark_s1_comparison.png`.
-  - `results/benchmark_s1_comparison.json`, `.mat`, `.png`: Re-generados y verificados.
-  - `docs/development/POST_RELEASE_REVIEW.md`: Parte III completada con los resultados detallados.
-* **Resultados de Tests en MATLAB R2026a:**
-  - `validate_panda`: **PASS** (Versión A intacta)
-  - `validate_panda_s1`: **PASS**
-  - `test_s1_geometry_limits`: **PASS**
-  - `test_s1_simulation_consistency`: **PASS**
-  - `test_source_geometry`: **PASS**
-  - `test_simulation_inputs`: **PASS**
-  - `benchmark_s1_comparison`: **PASS** (100% de muestras dentro del sobre físico)
+* **Resumen:** Actualización de `+panda_s1/check_limits.m` y `config_matrix.m`, precisión de docstrings en `simulate.m` y `box_diff.m`, ampliación de `test_s1_geometry_limits.m` (Sección 3b), desacoplamiento energético en `test_s1_simulation_consistency.m`, y muestreo normal truncado por rechazo 100 % físicamente admisible en `tools/benchmark_s1_comparison.m` con actualización de `results/` y `docs/assets/benchmark_s1_comparison.png`.
+
+---
+
+### Hito R3 — Auditoría Científica de las Correcciones
+* **Estado:** **COMPLETADO**
+* **Responsable:** Gemini 4 Argon
+* **Archivos inspeccionados:**
+  - `+panda_s1/check_limits.m`, `+panda_s1/config_matrix.m`, `+panda_s1/box_diff.m`, `+panda_s1/simulate.m`, `setup_panda.m`
+  - `tests/test_s1_geometry_limits.m`, `tests/test_s1_simulation_consistency.m`
+  - `tools/benchmark_s1_comparison.m`, `results/benchmark_s1_comparison.json`
+  - `docs/development/BENCHMARK_COMPARISON.md`, `docs/development/POST_RELEASE_REVIEW.md`, `README.md`
+* **Hallazgos verificados (8 ejes de auditoría aprobados):**
+  1. **Validación de $S^1$ (`check_limits.m`):** Matemáticamente exacta. Desacopla `on_manifold = (|c_i^2 + s_i^2 - 1| <= tol_norm)` de `in_arc` evaluado sobre $\hat{x}_i = x_i / \|x_i\|_2$. Además, la intersección `(u_dot_x_hat >= m.cos_half - tol) & (margins >= -tol)` evita la amplificación de tolerancias por $1/\sin h_i$ cerca del borde.
+  2. **Arco admisible vs. seguridad dinámica:** Claramente distinguidos en código y documentación (`box_diff` garantiza la clase de homotopía cinemática admisible; `simulate.m` monitoriza etapas RK4 sin invariancia dinámica CBF ni contacto unilateral).
+  3. **Interpretación física de límites del Panda:** Intacta en las 7 articulaciones, incluyendo J4 negativa y J6 cruzando $+\pi$.
+  4. **Tests energéticos (`test_s1_simulation_consistency.m`):** Evalúan propiedades intrínsecas reales de la Versión B (`nom_energy_err_b < 5e-10` y convergencia $O(h^4)$ con ratio $> 14$), condicionando el ratio histórico $> 5000$ a `if nom_energy_err_a > 1e-7`.
+  5. **Atribución de rendimiento:** Correctamente descompuesta entre especialización algorítmica (`Variant B-alg` vs. `Version A`: $\sim 88\%\text{--}95\%$ de la ganancia) y estado directo en la variedad (`Version B` vs. `Variant B-alg`: $+3\%\text{--}12\%$ en llamadas directas, $-3.2\%$ en simulación de bucle cerrado por las 4 evaluaciones de `exp_s1` por subpaso).
+  6. **Equivalencia y admisibilidad física del benchmark:** `results/benchmark_s1_comparison.json` confirma `admissible_envelope_verified = true`, `dq_limit_violations = 0` ($\max |\dot{q}_i|/\dot{q}_{\max,i} = 0.9459$) y `tau_limit_violations = 0` ($\max |\tau_i|/\tau_{\max,i} = 0.9277$). Se sincronizó `docs/development/BENCHMARK_COMPARISON.md` con las cifras exactas de R2.
+  7. **Equivalencia dinámica y preservación de Versión A:** `git diff main -- +panda/` vacío; paridad en los 100 estados de $\le 5.55\times 10^{-16}$ en FK, $8.88\times 10^{-16}\text{ kg}\cdot\text{m}^2$ en $M$, y $1.42\times 10^{-14}\text{ N}\cdot\text{m}$ en RNEA.
+  8. **Especificaciones aprobadas para el `README.md` (Hito R4):** Documentadas en detalle en la Parte IV, Sección 1.8 de `docs/development/POST_RELEASE_REVIEW.md`.
+* **Archivos modificados en Hito R3:**
+  - `docs/development/BENCHMARK_COMPARISON.md` (sincronizado con los datos admisibles de `results/benchmark_s1_comparison.json`).
+  - `docs/development/POST_RELEASE_REVIEW.md` (Parte IV añadida con el dictamen de auditoría y las conclusiones aprobadas para el README).
+  - `docs/development/HANDOFF.md`
 * **Próxima acción exacta:**
-  - **HITO R3 (Argon / Astra):** Auditoría científica independiente de las correcciones implementadas en R2, revisión de consistencia física y aprobación formal de las conclusiones para el README y la publicación.
-* **Bloqueos o incertidumbres:** Ninguno. Repositorio completamente funcional y validado.
+  - **HITO R4 (Flash 3.8 High):** Actualizar `README.md` aplicando las correcciones de renderizado matemático LaTeX/GFM (extraer matrices multilínea a bloques `$$ ... $$` fuera de las tablas), actualizar las tablas de rendimiento con los números exactos de `results/benchmark_s1_comparison.json`, apuntar la figura a `docs/assets/benchmark_s1_comparison.png`, incorporar las conclusiones científicas aprobadas en R3, y verificar visualmente el renderizado del README.
+* **Bloqueos o incertidumbres:** Ninguno.
 
 ---
 

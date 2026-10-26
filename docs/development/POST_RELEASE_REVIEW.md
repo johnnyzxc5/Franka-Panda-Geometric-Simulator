@@ -147,3 +147,97 @@ En `tools/benchmark_s1_comparison.m`:
 | **Residuo de Balance Energético** | $5.6218 \times 10^{-7}\text{ J}$ | **$9.9790 \times 10^{-11}\text{ J}$** | **$1.0000 \times 10^{-10}\text{ J}$** |
 | **Paridad de Trayectoria vs. B** | $9.7797 \times 10^{-10}\text{ rad}$ | **$4.4409 \times 10^{-15}\text{ rad}$** | $0$ (Referencia) |
 | **Error Máximo de Norma en $S^1$** | N/A | N/A | **$2.2204 \times 10^{-16}$ ($1\,\text{ulp}$)** |
+
+---
+
+## Parte IV — Auditoría Científica Independiente de las Correcciones (Hito R3)
+
+**Responsable:** Gemini 4 Argon  
+**Fecha:** 26 de octubre de 2026  
+**Objetivo:** Revisar de forma independiente el código, tests y resultados de Hito R2 frente a las ocho comprobaciones científicas obligatorias, y aprobar formalmente las afirmaciones y especificaciones editoriales para `README.md` (Hito R4).
+
+---
+
+### 1. Verificación de las Ocho Comprobaciones Científicas
+
+#### 1.1 ¿Es matemáticamente correcta la validación de $S^1$? — **APROBADO**
+- En `+panda_s1/check_limits.m` (líneas 38–69), la validación separa ortogonalmente:
+  1. **Pertenencia a la variedad:** $e_{\text{norm},i} = |c_i^2 + s_i^2 - 1| \le \text{tol}_{\text{norm}}$ (`on_manifold`).
+  2. **Pertenencia al arco sobre la dirección proyectada $\hat{x}_i = x_i / \|x_i\|_2$:**
+     $$\text{in\_arc}_i \iff (\|x_i\|_2 > \text{eps}) \;\land\; (u_i^\top \hat{x}_i \ge \cos h_i - \text{tol}) \;\land\; (\mu_i \ge -\text{tol}).$$
+  3. **Admisibilidad conjunta:** `in_limits = on_manifold & in_arc`.
+- *Observación matemática destacada:* La intersección de $u_i^\top \hat{x}_i \ge \cos h_i - \text{tol}$ con $\mu_i = h_i - |\delta_i| \ge -\text{tol}$ corrige además el escalamiento de sensibilidad de $\cos\delta_i$ cerca del borde ($\frac{d}{d\delta}\cos\delta_i = -\sin\delta_i$): para las articulaciones $1, 3, 5, 7$ ($\sin h_i \approx 0.2419$), una tolerancia solo en el coseno habría permitido una desviación angular de $\text{tol}/\sin h_1 \approx 4.13\,\text{tol}$, mientras que la intersección acota la tolerancia angular exactamente por $\text{tol}$ en radianes.
+- Todos los contraejemplos fuera de la variedad ($x_i = 0$, $x_1 = -0.5\,u_1$ en el centro del tope prohibido, vectores con $\lambda = 0.5$ y $\lambda = 2.0$) quedan rechazados y diagnosticados en `test_s1_geometry_limits.m` (Sección 3b).
+
+#### 1.2 ¿Se distinguen correctamente arco admisible y seguridad dinámica? — **APROBADO**
+- Los docstrings de `+panda_s1/box_diff.m` y `+panda_s1/simulate.m` distinguen ahora sin ambigüedad entre:
+  - *Admisibilidad cinemática / clase de homotopía:* `box_diff` garantiza que las referencias interpoladas y el error proporcional PD nunca comanden movimiento a través del sector prohibido $S^1 \setminus \mathcal{A}_i$.
+  - *Monitorización frente a viabilidad dinámica:* `simulate.m` monitoriza el margen a los límites en todas las etapas RK4-MK y satura el par comandado en $\pm\tau_{\max}$, sin reclamar invariancia dinámica hacia adelante (CBF) ni dinámica de impacto en los topes.
+
+#### 1.3 ¿Se preservó la interpretación física de los límites del Panda? — **APROBADO**
+- Los intervalos físicos $[q_{\min,i}, q_{\max,i}]$ de las 7 articulaciones (incluyendo la articulación 4 íntegramente negativa $[-3.0718, -0.0698]\text{ rad}$ y la articulación 6 que cruza $+\pi$, $[-0.0175, +3.7525]\text{ rad}$) permanecen intactos y el margen $\mu_i = h_i - |\delta_i|$ coincide a precisión de máquina ($< 10^{-15}\text{ rad}$) con $\min(q_i - q_{\min,i},\; q_{\max,i} - q_i)$ sobre $(S^1)^7$.
+
+#### 1.4 ¿Los tests energéticos evalúan propiedades reales? — **APROBADO**
+- En `tests/test_s1_simulation_consistency.m` (líneas 44–50), el éxito del test de la Versión B depende de propiedades numéricas intrínsecas:
+  - Cota absoluta a $h = 1\text{ ms}$: `nom_energy_err_b < 5e-10` (medido: $1.0000 \times 10^{-10}\text{ J}$).
+  - Convergencia de cuarto orden bajo bisección de paso ($h = 1\text{ ms} \to 0.5\text{ ms}$): `nom_energy_err_b / nom_energy_err_b_fine > 14` (ratio medido: $17.323 \implies p_{\text{emp}} = 4.115$).
+- El ratio $> 5000$ frente a la Versión A está condicionado a `if nom_energy_err_a > 1e-7`, evitando que una futura corrección de `MatrixExp6` rompa el test de la Versión B.
+
+#### 1.5 ¿Se atribuyen correctamente las ventajas de rendimiento? — **APROBADO**
+- La descomposición en 4 vías (`Stock MR`, `Version A`, `Variant B-alg`, `Version B`) demuestra con total transparencia:
+  1. **Especialización algorítmica (`Variant B-alg` vs. `Version A`):** Aporta entre el $88\%$ y el $95\%$ de la reducción de tiempo frente a la Versión A gracias al Teorema 3.1 y a los adjuntos factorizados $B^{(i)} = \operatorname{Ad}_{M_i^{-1}}$.
+  2. **Estado nativo en la variedad (`Version B` vs. `Variant B-alg`):** Aporta un $3\%\text{--}12\%$ adicional en llamadas directas (`fk` $1.12\times$, `frames` $1.10\times$, `id` $1.05\times$, `fd` $1.03\times$) al evitar calcular `cos(q), sin(q)`, mientras que en `dynamics` ($M, b$) están empatadas ($124.34\,\mu\text{s}$ vs. $124.99\,\mu\text{s}$).
+  3. **Simulación en bucle cerrado (3.6 s, 3,600 subpasos):** Tanto `Variant B-alg` ($2,091.79\text{ ms}$, $1.47\times$) como `Version B` ($2,158.82\text{ ms}$, $1.42\times$) superan ampliamente a `Version A` ($3,067.88\text{ ms}$). `Variant B-alg` es un $3.2\%$ más rápida que `Version B` en simulación debido al coste de las 4 evaluaciones de `exp_s1` por subpaso RK4-MK.
+
+#### 1.6 ¿Los benchmarks comparan estados físicos equivalentes y admisibles? — **APROBADO**
+- Las 4 implementaciones se evalúan exactamente sobre los mismos 100 estados físicos (`Q`, `DQ`, `DDQ`, `TAU`, con $X_i = \text{from\_q}(q_i)$).
+- El bloque `sampling` de `results/benchmark_s1_comparison.json` certifica que el 100 % de las muestras respetan los límites físicos del Panda:
+  - `admissible_envelope_verified: true`
+  - `max_q_utilization: 0.9686` (`0` violaciones)
+  - `max_dq_utilization: 0.9459 <= 0.95` (`dq_limit_violations: 0`)
+  - `max_tau_utilization: 0.9277 <= 0.95` (`tau_limit_violations: 0`)
+- Se actualizó además `docs/development/BENCHMARK_COMPARISON.md` para que todas sus tablas coincidan dígito a dígito con `results/benchmark_s1_comparison.json`.
+
+#### 1.7 ¿Se conservan las propiedades originales de RNEA y la equivalencia dinámica? — **APROBADO**
+- `git diff main -- +panda/` está completamente vacío (0 líneas modificadas en la Versión A).
+- En los 100 estados admisibles del benchmark (`results/benchmark_s1_comparison.json`):
+  - Error máximo en FK (`Version B` vs. `Version A`): $5.5511 \times 10^{-16}$.
+  - Error máximo en $J_s$ y $J_b$: $4.4409 \times 10^{-16}$ y $9.4369 \times 10^{-16}$.
+  - Error máximo en RNEA (`inverse_dynamics`): $1.4211 \times 10^{-14}\text{ N}\cdot\text{m}$.
+  - Error máximo en $M(X)$ vs. $M(q)$: $8.8818 \times 10^{-16}\text{ kg}\cdot\text{m}^2$.
+  - Error máximo en $b(X,\omega)$ vs. $b(q,\dot{q})$: $2.1316 \times 10^{-14}\text{ N}\cdot\text{m}$.
+  - Error máximo en dinámica directa (`forward_dynamics`): $3.6380 \times 10^{-12}\text{ rad/s}^2$.
+
+#### 1.8 ¿Qué afirmaciones y elementos del `README.md` necesitan corregirse en Hito R4?
+
+A continuación se establece la **lista cerrada de correcciones obligatorias y afirmaciones aprobadas** que Flash 3.8 High debe aplicar a `README.md` en el **Hito R4**:
+
+1. **Corrección del Renderizado Matemático LaTeX en GitHub Flavored Markdown (GFM):**
+   - **Prohibido usar `\begin{bmatrix} ... \\ ... \end{bmatrix}` dentro de celdas de tablas Markdown:** En la línea 30 de `README.md`, sustituir la matriz multilínea dentro de la tabla por una expresión inline compacta (o referenciar las ecuaciones en bloque situadas debajo de la tabla) y presentar las ecuaciones fundamentales en bloques `$$ ... $$` independientes fuera de la tabla:
+     - Configuración y cinemática en $(S^1)^7$:
+       $$x_i = \begin{bmatrix} \cos q_i \\ \sin q_i \end{bmatrix} \in S^1, \qquad \dot{x}_i = \omega_i J x_i, \qquad J = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}$$
+     - Exponencial algebraica de tornillo para articulación rotacional de eje unitario y paso nulo ($\|\omega_i\|_2 = 1,\; \omega_i^\top v_i = 0$, Teorema 3.1):
+       $$\exp([S_i], x_i) = I_4 + s_i [S_i] + (1 - c_i) [S_i]^2$$
+     - Factorización del homomorfismo adjunto en RNEA:
+       $$\operatorname{Ad}_{T_{i,i-1}}(x_i) = \operatorname{diag}\!\left(R_z(x_i)^\top, R_z(x_i)^\top\right) B^{(i)}, \qquad B^{(i)} = \operatorname{Ad}_{M_i^{-1}}$$
+     - Caracterización algebraica del arco admisible ($0 < h_i < \pi$):
+       $$\mathcal{A}_i = \left\{ x_i \in \mathbb{R}^2 \;\middle|\; x_i^\top x_i = 1,\; u_i^\top x_i \ge \cos h_i \right\}, \qquad u_i = \begin{bmatrix} \cos m_i \\ \sin m_i \end{bmatrix}$$
+   - Separar claramente cualquier código en backticks (`MatrixExp6`, `Adjoint`, `box_diff`) de los delimitadores matemáticos `$ ... $`.
+
+2. **Sincronización Exacta de Tablas Numéricas y Enlaces con `results/benchmark_s1_comparison.json`:**
+   - Actualizar la Tabla 1 (Micro-Benchmarks) y la Tabla 2 (Simulación de 3.6 s) en `README.md` con las cifras exactas del benchmark físicamente admisible de R2:
+     - `fk`: Stock $42.13\,\mu\text{s}$, Version A $42.24\,\mu\text{s}$, Variant B-alg $14.92\,\mu\text{s}$, Version B **$13.29\,\mu\text{s}$** (Speedup B vs. Stock **$3.17\times$**, B vs. A **$3.18\times$**, B vs. B-alg **$1.12\times$**).
+     - `frames`: Stock $49.28\,\mu\text{s}$, Version A $52.49\,\mu\text{s}$, Variant B-alg $9.96\,\mu\text{s}$, Version B **$9.08\,\mu\text{s}$** (Speedup B vs. Stock **$5.43\times$**, B vs. A **$5.78\times$**, B vs. B-alg **$1.10\times$**).
+     - `jacobian_space`: Stock $48.10\,\mu\text{s}$, Version A $49.01\,\mu\text{s}$, Variant B-alg $25.90\,\mu\text{s}$, Version B **$25.24\,\mu\text{s}$** (Speedup B vs. Stock **$1.91\times$**, B vs. A **$1.94\times$**, B vs. B-alg **$1.03\times$**).
+     - `jacobian_body`: Stock $48.07\,\mu\text{s}$, Version A $96.25\,\mu\text{s}$, Variant B-alg $33.11\,\mu\text{s}$, Version B **$31.73\,\mu\text{s}$** (Speedup B vs. Stock **$1.52\times$**, B vs. A **$3.03\times$**, B vs. B-alg **$1.04\times$**).
+     - `inverse_dynamics`: Stock $162.38\,\mu\text{s}$, Version A $105.27\,\mu\text{s}$, Variant B-alg $51.45\,\mu\text{s}$, Version B **$49.07\,\mu\text{s}$** (Speedup B vs. Stock **$3.31\times$**, B vs. A **$2.15\times$**, B vs. B-alg **$1.05\times$**).
+     - `dynamics` ($M, b$): Stock $1,271.50\,\mu\text{s}$, Version A $178.47\,\mu\text{s}$, Variant B-alg **$124.34\,\mu\text{s}$**, Version B $124.99\,\mu\text{s}$ (Speedup B vs. Stock **$10.17\times$**, B vs. A **$1.43\times$**, B vs. B-alg $0.99\times$).
+     - `forward_dynamics`: Stock $1,297.35\,\mu\text{s}$, Version A $186.53\,\mu\text{s}$, Variant B-alg $127.72\,\mu\text{s}$, Version B **$124.53\,\mu\text{s}$** (Speedup B vs. Stock **$10.42\times$**, B vs. A **$1.50\times$**, B vs. B-alg **$1.03\times$**).
+     - Simulación 3.6 s: Version A $3,067.88\text{ ms}$ ($852.19\,\mu\text{s}$/step, RTF $1.17\times$), Variant B-alg **$2,091.79\text{ ms}$** ($581.05\,\mu\text{s}$/step, RTF **$1.72\times$**, Speedup **$1.47\times$**), Version B **$2,158.82\text{ ms}$** ($599.67\,\mu\text{s}$/step, RTF **$1.67\times$**, Speedup **$1.42\times$**).
+   - Cambiar la referencia de la imagen del benchmark a `![Benchmark Comparison](docs/assets/benchmark_s1_comparison.png)`.
+
+3. **Conclusiones Científicas Aprobadas para el `README.md`:**
+   - **Estructura Polinomial vs. Racional:** Precisar que FK, frames, jacobianos, $M(X)$ y la dinámica inversa RNEA (sin fricción hiperbólica $\tanh$) son **polinomiales en $(c_i, s_i)$**, mientras que la dinámica directa $\dot{\omega} = M(X)^{-1}(\tau - b)$ es **racional en $(c_i, s_i)$**. Indicar explícitamente que el Teorema 3.1 aplica a tornillos rotacionales de eje unitario y paso nulo ($\|\omega_i\|_2 = 1,\; \omega_i^\top v_i = 0$).
+   - **Atribución del Balance Energético ($5,621\times$):** Explicar que el piso de error de $5.62 \times 10^{-7}\text{ J}$ en la Versión A se debe al umbral `NearZero` ($|q_i| < 10^{-6}\text{ rad}$) en `MatrixExp6` al cruzar $q_i = 0$, y que su eliminación ($1.00 \times 10^{-10}\text{ J}$ a $h = 1\text{ ms}$ y convergencia $O(h^4)$ hasta $2.44 \times 10^{-13}\text{ J}$ a $h = 0.25\text{ ms}$) se logra mediante la evaluación algebraica suave en $(c_i, s_i)$ **tanto en `Variant B-alg` como en `Version B`**. Puntualizar que RK4-MK preserva la variedad $\|x_i\|_2 = 1$ a $2.22 \times 10^{-16}$ ($1\,\text{ulp}$), pero es un integrador Runge–Kutta explícito sobre grupos de Lie (conservación energética $O(h^4)$) y no un integrador simpléctico variacional.
+   - **Límites Articulares y Seguridad:** Explicar que `check_limits.m` verifica conjuntamente la pertenencia a la variedad $S^1$ y la desigualdad del arco, que `box_diff` garantiza la admisibilidad cinemática/homotópica de la trayectoria de referencia y de la dirección del error PD (evitando cruzar el tope prohibido cuando $2h_i > \pi$ o al cruzar $+\pi$ en la articulación 6), y que `simulate.m` monitoriza posibles violaciones en cada etapa RK4 sin reclamar invariancia dinámica (CBF) ni física de impacto en los topes.
+
