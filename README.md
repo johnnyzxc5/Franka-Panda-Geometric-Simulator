@@ -40,21 +40,37 @@ Both formulations share identical identified physical parameters from Gaz et al.
 
 ### Core Geometric Equations on $(S^1)^7$
 
-1. **Configuration and Left-Trivialized Velocity Kinematics:**
-   $$x_i = \begin{bmatrix} c_i \\ s_i \end{bmatrix} \in S^1 \subset \mathbb{R}^2, \qquad \dot{x}_i = \omega_i J x_i, \qquad J = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}$$
+#### 1. Configuration and Left-Trivialized Velocity Kinematics
 
-2. **Purely Algebraic Space Screw Exponential (Theorem 3.1):**  
-   For a unit-axis revolute screw $S_i = [\omega_i; v_i]$ with $\|\omega_i\|_2 = 1$ and zero helical pitch ($\omega_i^\top v_i = 0$), the $SE(3)$ exponential depends purely algebraically on $x_i = [c_i, s_i]^\top \in S^1$:
-   $$\exp([S_i], x_i) = I_4 + s_i [S_i] + (1 - c_i) [S_i]^2 = \begin{bmatrix} I_3 + s_i [\omega_i]_\times + (1-c_i)[\omega_i]_\times^2 & s_i v_i + (1-c_i)[\omega_i]_\times v_i \\ 0 & 1 \end{bmatrix}$$
+$$
+x_i = \begin{bmatrix} c_i \\ s_i \end{bmatrix} \in S^1 \subset \mathbb{R}^2, \qquad \dot{x}_i = \omega_i J x_i, \qquad J = \begin{bmatrix} 0 & -1 \\ 1 & 0 \end{bmatrix}
+$$
 
-3. **Hoisted Adjoint Homomorphism Factorization in Spatial RNEA:**  
-   Precomputing constant inverse link adjoints $B^{(i)} = \operatorname{Ad}_{M_i^{-1}}$ allows evaluating inter-link adjoints without matrix inversion or dense multiplications:
-   $$\operatorname{Ad}_{T_{i,i-1}}(x_i) = \operatorname{diag}\!\left(R_z(x_i)^\top, R_z(x_i)^\top\right) B^{(i)}$$
+#### 2. Purely Algebraic Space Screw Exponential (Theorem 3.1)
 
-4. **Algebraic Characterization of the Admissible Joint Arc ($0 < h_i < \pi$):**  
-   Because all 7 Panda joints satisfy $0 < h_i = \frac{1}{2}(q_{\max,i} - q_{\min,i}) \le 2.8973 < \pi$, the admissible arc $\mathcal{A}_i \subset S^1$ is exact and unambiguous:
-   $$\mathcal{A}_i = \left\{ x_i \in \mathbb{R}^2 \;\middle|\; x_i^\top x_i = 1,\;\; u_i^\top \hat{x}_i \ge \cos h_i \right\}, \qquad u_i = \begin{bmatrix} \cos m_i \\ \sin m_i \end{bmatrix} \in S^1$$
-   where $m_i = \frac{1}{2}(q_{\min,i} + q_{\max,i})$ and $\hat{x}_i = x_i / \|x_i\|_2$.
+For a unit-axis revolute screw $S_i = [\omega_i; v_i]$ with $\|\omega_i\|_2 = 1$ and zero helical pitch ($\omega_i^\top v_i = 0$), the $SE(3)$ exponential depends purely algebraically on $x_i = [c_i, s_i]^\top \in S^1$:
+
+$$
+\exp([S_i], x_i) = I_4 + s_i [S_i] + (1 - c_i) [S_i]^2 = \begin{bmatrix} I_3 + s_i [\omega_i]_\times + (1-c_i)[\omega_i]_\times^2 & s_i v_i + (1-c_i)[\omega_i]_\times v_i \\ 0 & 1 \end{bmatrix}
+$$
+
+#### 3. Hoisted Adjoint Homomorphism Factorization in Spatial RNEA
+
+Precomputing constant inverse link adjoints $B^{(i)} = \operatorname{Ad}_{M_i^{-1}}$ allows evaluating inter-link adjoints without matrix inversion or dense multiplications:
+
+$$
+\operatorname{Ad}_{T_{i,i-1}}(x_i) = \operatorname{diag}\!\left(R_z(x_i)^\top, R_z(x_i)^\top\right) B^{(i)}
+$$
+
+#### 4. Algebraic Characterization of the Admissible Joint Arc ($0 < h_i < \pi$)
+
+Because all 7 Panda joints satisfy $0 < h_i = \frac{1}{2}(q_{\max,i} - q_{\min,i}) \le 2.8973 < \pi$, the admissible arc $\mathcal{A}_i \subset S^1$ is exact and unambiguous:
+
+$$
+\mathcal{A}_i = \left\{ x_i \in \mathbb{R}^2 \;\middle|\; x_i^\top x_i = 1,\;\; u_i^\top \hat{x}_i \ge \cos h_i \right\}, \qquad u_i = \begin{bmatrix} \cos m_i \\ \sin m_i \end{bmatrix} \in S^1
+$$
+
+where $m_i = \frac{1}{2}(q_{\min,i} + q_{\max,i})$ and $\hat{x}_i = x_i / \|x_i\|_2$.
 
 ---
 
