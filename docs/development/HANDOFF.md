@@ -30,7 +30,7 @@
 | **HITO R1** | **Revisión matemática y científica** | **Argon / Astra** | **COMPLETADO** | 26-Oct-2026. Análisis formal de límites, energía, estructura polinomial/racional y criterios para R2 (`80106bf`). |
 | **HITO R2** | **Correcciones de código, tests y benchmarks** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Validación $S^1$ desacoplada, test energético intrínseco, muestreo físico admisible 100% (`bf2c12f`). |
 | **HITO R3** | **Auditoría científica de las correcciones** | **Argon / Astra** | **COMPLETADO** | 26-Oct-2026. Verificación independiente de las 8 comprobaciones y aprobación de conclusiones para el README. |
-| **HITO R4** | **README, LaTeX, presentación y animaciones** | **Flash 3.8 High** | **PENDIENTE** | Corregir renderizado matemático GFM, tablas, ecuaciones en bloque y recursos visuales. |
+| **HITO R4** | **README, LaTeX, presentación y animaciones** | **Flash 3.8 High** | **COMPLETADO** | 26-Oct-2026. Ecuaciones en bloque GFM, tablas sincronizadas con R2, conclusiones aprobadas y verificación visual (`36cb61a`). |
 | **HITO R5** | **Validación y publicación final en GitHub** | **Flash 3.8 High** | **PENDIENTE** | Suite completa de validación, integración en `main`, push y comprobación remota real. |
 
 ---
@@ -79,8 +79,26 @@
   - `docs/development/BENCHMARK_COMPARISON.md` (sincronizado con los datos admisibles de `results/benchmark_s1_comparison.json`).
   - `docs/development/POST_RELEASE_REVIEW.md` (Parte IV añadida con el dictamen de auditoría y las conclusiones aprobadas para el README).
   - `docs/development/HANDOFF.md`
+
+---
+
+### Hito R4 — README, LaTeX, Presentación y Animaciones
+* **Estado:** **COMPLETADO** (`36cb61a`)
+* **Responsable:** Flash 3.8 High
+* **Archivos inspeccionados y modificados:**
+  - `README.md`:
+    - Eliminado el entorno `\begin{bmatrix} ... \end{bmatrix}` multilínea dentro de la celda de la tabla de representaciones para garantizar compatibilidad estricta con GitHub Flavored Markdown (GFM).
+    - Creada la subsección `### Core Geometric Equations on $(S^1)^7$` con las 4 ecuaciones geométricas fundamentales en bloques de display math (`$$ ... $$`).
+    - Tablas de micro-benchmarks y simulación dinámica sincronizadas dígito a dígito con `results/benchmark_s1_comparison.json` (muestreo 100 % físicamente admisible).
+    - Unificada la ruta de imagen del benchmark a `docs/assets/benchmark_s1_comparison.png`.
+    - Incorporadas las conclusiones científicas aprobadas: estructura polinomial (FK, $M$, RNEA) vs. racional (dinámica directa), atribución del factor $5,621\times$ de energía al umbral `NearZero` superado por evaluación algebraica suave $C^\infty$ (con RK4-MK explícito $O(h^4)$ no simpléctico), y monitorización de límites vs. homotopía admisible de `box_diff`.
+  - `docs/development/POST_RELEASE_REVIEW.md` (añadida Parte V con el registro de verificación).
+  - `docs/development/HANDOFF.md` (actualizado estado de R4).
+* **Verificaciones ejecutadas:**
+  - `scratch/check_readme.py`: 4 tablas Markdown auditadas (0 errores de columnas o formato), 4 bloques de ecuaciones verificados, 4 recursos visuales (GIFs y PNGs) con existencia física comprobada en disco, y enlaces de anclas validados.
+  - Generada previsualización HTML `readme_preview.html`.
 * **Próxima acción exacta:**
-  - **HITO R4 (Flash 3.8 High):** Actualizar `README.md` aplicando las correcciones de renderizado matemático LaTeX/GFM (extraer matrices multilínea a bloques `$$ ... $$` fuera de las tablas), actualizar las tablas de rendimiento con los números exactos de `results/benchmark_s1_comparison.json`, apuntar la figura a `docs/assets/benchmark_s1_comparison.png`, incorporar las conclusiones científicas aprobadas en R3, y verificar visualmente el renderizado del README.
+  - **HITO R5 (Flash 3.8 High):** Ejecutar la suite completa de validación en MATLAB R2026a Update 4 (`setup_panda; validate_panda; validate_panda_s1; test_s1_geometry_limits; test_s1_simulation_consistency; test_source_geometry; test_simulation_inputs`), verificar `git diff main -- +panda/` estrictamente vacío, hacer checkout a `main`, merge limpio `--no-ff` de la rama `review/s1-scientific-polish`, push a `origin main` y `origin review/s1-scientific-polish`, y verificación en vivo del repositorio en GitHub (`https://github.com/johnnyzxc5/Franka-Panda-Geometric-Simulator`).
 * **Bloqueos o incertidumbres:** Ninguno.
 
 ---

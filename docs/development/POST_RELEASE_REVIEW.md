@@ -241,3 +241,43 @@ A continuación se establece la **lista cerrada de correcciones obligatorias y a
    - **Atribución del Balance Energético ($5,621\times$):** Explicar que el piso de error de $5.62 \times 10^{-7}\text{ J}$ en la Versión A se debe al umbral `NearZero` ($|q_i| < 10^{-6}\text{ rad}$) en `MatrixExp6` al cruzar $q_i = 0$, y que su eliminación ($1.00 \times 10^{-10}\text{ J}$ a $h = 1\text{ ms}$ y convergencia $O(h^4)$ hasta $2.44 \times 10^{-13}\text{ J}$ a $h = 0.25\text{ ms}$) se logra mediante la evaluación algebraica suave en $(c_i, s_i)$ **tanto en `Variant B-alg` como en `Version B`**. Puntualizar que RK4-MK preserva la variedad $\|x_i\|_2 = 1$ a $2.22 \times 10^{-16}$ ($1\,\text{ulp}$), pero es un integrador Runge–Kutta explícito sobre grupos de Lie (conservación energética $O(h^4)$) y no un integrador simpléctico variacional.
    - **Límites Articulares y Seguridad:** Explicar que `check_limits.m` verifica conjuntamente la pertenencia a la variedad $S^1$ y la desigualdad del arco, que `box_diff` garantiza la admisibilidad cinemática/homotópica de la trayectoria de referencia y de la dirección del error PD (evitando cruzar el tope prohibido cuando $2h_i > \pi$ o al cruzar $+\pi$ en la articulación 6), y que `simulate.m` monitoriza posibles violaciones en cada etapa RK4 sin reclamar invariancia dinámica (CBF) ni física de impacto en los topes.
 
+---
+
+## Parte V — README, LaTeX, Presentación y Recursos Visuales (Hito R4)
+
+**Responsable:** Flash 3.8 High  
+**Objetivo:** Implementar en `README.md` las especificaciones editoriales y científicas aprobadas en R3, garantizando compatibilidad total con el renderizador GitHub Flavored Markdown (GFM), sincronización numérica estricta con los benchmarks admisibles de R2 y verificación visual de activos.
+
+### 1. Acciones Realizadas en `README.md`
+
+1. **Extracción de Matrices Multilínea de Tablas a Ecuaciones en Bloque ($$ ... $$):**
+   - Se eliminó el entorno `\begin{bmatrix} ... \end{bmatrix}` que contenía saltos de línea (`\\`) dentro de la celda de la tabla de representaciones (Línea 30 original), el cual rompía el parser de tablas en GitHub Flavored Markdown.
+   - Se creó la nueva sección dedicada `### Core Geometric Equations on $(S^1)^7$` con las 4 ecuaciones fundamentales en bloques `$$ ... $$` independientes:
+     1. Cinemática y álgebra en $S^1$: $x_i = (\cos q_i, \sin q_i)^\top \in S^1$, $\dot{x}_i = \omega_i J x_i$.
+     2. Exponencial algebraica de tornillo (Teorema 3.1): $\exp([S_i], x_i) = I_4 + s_i [S_i] + (1 - c_i) [S_i]^2$.
+     3. Factorización del homomorfismo adjunto en RNEA: $\operatorname{Ad}_{T_{i,i-1}}(x_i) = \operatorname{diag}(R_z(x_i)^\top, R_z(x_i)^\top) B^{(i)}$.
+     4. Caracterización algebraica del arco admisible: $\mathcal{A}_i = \{x_i \in \mathbb{R}^2 \mid x_i^\top x_i = 1,\; u_i^\top x_i \ge \cos h_i\}$.
+   - Se desacoplaron todos los nombres de código con backticks de los delimitadores matemáticos `$ ... $`.
+
+2. **Sincronización Numérica con `results/benchmark_s1_comparison.json`:**
+   - Se actualizaron las tablas de Micro-Benchmarks y Simulación Dinámica con las cifras exactas del muestreo 100 % físicamente admisible obtenido en el Hito R2.
+   - Se unificó la ruta de la figura comparativa a `![Benchmark Comparison](docs/assets/benchmark_s1_comparison.png)`.
+
+3. **Incorporación de Conclusiones Científicas Aprobadas:**
+   - **Estructura Polinomial vs. Racional:** Se documentó que la cinemática directa, jacobianos, matriz de masa $M(X)$ y dinámica inversa RNEA son polinomios en $(c_i, s_i)$, mientras que la dinámica directa $M(X)^{-1}(\tau - b)$ es racional debido a la inversión de matriz.
+   - **Origen del Factor Energético ($5,621\times$):** Se aclaró rigurosamente que el piso de error de $5.62\times 10^{-7}\text{ J}$ en la Versión A provenía del umbral `NearZero` ($10^{-6}\text{ rad}$) en `MatrixExp6` al cruzar $q_i = 0$, superado por la evaluación algebraica $C^\infty$ tanto en `Variant B-alg` como en `Version B`. Se especificó que RK4-MK preserva la variedad a nivel máquina ($2.22\times 10^{-16}$) pero es un integrador explícito sobre grupos de Lie ($O(h^4)$) y no un esquema variacional simpléctico.
+   - **Límites Articulares y Seguridad:** Se precisó que `check_limits.m` audita conjuntamente $\|x_i\|_2 = 1$ y $u_i^\top \hat{x}_i \ge \cos h_i$, que `box_diff` resuelve la homotopía cinemática admisible y que `simulate.m` monitoriza el estado sin imponer barreras de control dinámicas continuas.
+
+### 2. Auditoría y Verificación Automatizada (`scratch/check_readme.py`)
+
+Se ejecutó una auditoría sintáctica y estructural completa sobre `README.md`:
+- **Tablas Markdown:** 4 tablas auditadas; 0 errores de columnas o formato; 0 matrices multilínea `\\` dentro de celdas.
+- **Bloques Matemáticos:** 4 bloques de display math (`$$ ... $$`) verificados sintácticamente.
+- **Recursos Multimedia:** Se validó la existencia física en disco y tamaño no nulo de los 4 archivos de imagen/animación referenciados:
+  - `docs/assets/panda_joint_coordinate_dynamics.gif` (2,714,082 bytes)
+  - `docs/assets/panda_global_lie_group_dynamics.gif` (2,729,568 bytes)
+  - `docs/assets/benchmark_s1_comparison.png` (255,876 bytes)
+  - `docs/assets/banner_geometric_dynamics.png` (186,812 bytes)
+- **Enlaces Internos:** Todos los enlaces y anclas `#` resuelven a encabezados existentes.
+- **Previsualización HTML:** Se generó `readme_preview.html` confirmando el renderizado limpio de tablas, ecuaciones KaTeX/MathJax y recursos visuales.
+
