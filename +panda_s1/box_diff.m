@@ -5,6 +5,15 @@ function dq_box = box_diff(X2, X1, m)
 % arc A_i = [qmin_i, qmax_i] without wrapping across the mechanical hard stop:
 %   dq_box_i = delta_i(X2) - delta_i(X1) in [-2*h_i, 2*h_i]
 %
+% Kinematic Homotopy Consistency:
+%   Because the arc midpoint u_i has its branch cut at -u_i (the midpoint of the
+%   forbidden mechanical stop S^1 \ A_i, located at distance pi - h_i >= 14 deg
+%   from any admissible state), linear interpolation along dq_box guarantees
+%   that open-loop reference paths and PD error vectors remain strictly inside
+%   the admissible homotopy class without commanding motion across the stop.
+%   Note: This is a kinematic guidance guarantee; dynamic forward invariance
+%   under saturated torques or disturbances requires separate control authority.
+%
 % Agreement with geodesic difference:
 %   When |dq_box_i| < pi, dq_box_i == geodesic_diff_i identically.
 %   When |dq_box_i| >= pi, geodesic_diff points across the forbidden stop,

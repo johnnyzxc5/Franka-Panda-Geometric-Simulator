@@ -35,13 +35,51 @@ fprintf(' States: %d, Repeats: %d, Seed: %d\n', N, R, opts.seed);
 fprintf('========================================================================================\n\n');
 
 % -------------------------------------------------------------------------
-% 1. Sample Realistic Configurations and Velocities within Bounds
+% 1. Sample Realistic Configurations and Velocities strictly within Physical Bounds
 % -------------------------------------------------------------------------
 margin = 0.08;
 Q = (m_a.qmin + margin) + (m_a.qmax - m_a.qmin - 2 * margin) .* rand(7, N);
-DQ = randn(7, N) .* (0.35 * m_a.dqmax);
-DDQ = randn(7, N) .* 2.0;
-TAU = randn(7, N) .* (0.30 * m_a.taumax);
+
+% Velocity sampling: normal distribution with sigma = 0.35*dqmax, truncated by rejection
+% to ensure 100% of samples satisfy |dq_i| <= 0.95*dqmax (zero physical limit violations)
+DQ = zeros(7, N);
+for j = 1:7
+    col_dq = [];
+    while numel(col_dq) < N
+        cand = randn(N, 1) * (0.35 * m_a.dqmax(j));
+        valid = cand(abs(cand) <= 0.95 * m_a.dqmax(j));
+        col_dq = [col_dq; valid]; %#ok<AGROW>
+    end
+    DQ(j, :) = col_dq(1:N)';
+end
+
+% Torque sampling: normal distribution with sigma = 0.30*taumax, truncated by rejection
+% to ensure 100% of samples satisfy |tau_i| <= 0.95*taumax
+TAU = zeros(7, N);
+for j = 1:7
+    col_tau = [];
+    while numel(col_tau) < N
+        cand = randn(N, 1) * (0.30 * m_a.taumax(j));
+        valid = cand(abs(cand) <= 0.95 * m_a.taumax(j));
+        col_tau = [col_tau; valid]; %#ok<AGROW>
+    end
+    TAU(j, :) = col_tau(1:N)';
+end
+
+% Acceleration sampling: normal distribution truncated to [-10, 10] rad/s^2
+DDQ = zeros(7, N);
+col_ddq = [];
+while numel(col_ddq) < 7 * N
+    cand = randn(7 * N, 1) * 2.0;
+    valid = cand(abs(cand) <= 10.0);
+    col_ddq = [col_ddq; valid]; %#ok<AGROW>
+end
+DDQ = reshape(col_ddq(1:7*N), 7, N);
+
+% Strict physical verification asserts
+assert(all(Q >= m_a.qmin & Q <= m_a.qmax, 'all'), 'benchmark:bounds', 'Q violates joint limits');
+assert(all(abs(DQ) <= m_a.dqmax, 'all'), 'benchmark:bounds', 'DQ violates velocity limits');
+assert(all(abs(TAU) <= m_a.taumax, 'all'), 'benchmark:bounds', 'TAU violates effort limits');
 
 X_cells = cell(1, N);
 for i = 1:N
@@ -425,11 +463,23 @@ accuracy_table = struct( ...
     'err_b_bias_b_vs_a', err_b_bias_b_vs_a, ...
     'err_fd_b_vs_a', err_fd_b_vs_a);
 
+q_center = 0.5 * (m_a.qmin + m_a.qmax);
+q_span_half = 0.5 * (m_a.qmax - m_a.qmin);
+sampling_verification = struct( ...
+    'admissible_envelope_verified', true, ...
+    'max_q_utilization', max(abs(Q - q_center) ./ q_span_half, [], 'all'), ...
+    'max_dq_utilization', max(abs(DQ) ./ m_a.dqmax, [], 'all'), ...
+    'max_tau_utilization', max(abs(TAU) ./ m_a.taumax, [], 'all'), ...
+    'max_ddq_rad_s2', max(abs(DDQ), [], 'all'), ...
+    'dq_limit_violations', nnz(abs(DQ) > m_a.dqmax), ...
+    'tau_limit_violations', nnz(abs(TAU) > m_a.taumax));
+
 report = struct( ...
     'matlab_version', version, ...
     'seed', opts.seed, ...
     'n_states', N, ...
     'n_repeats', R, ...
+    'sampling', sampling_verification, ...
     'timings', timing_table, ...
     'representation_overhead', overhead_table, ...
     'simulation', simulation_table, ...
@@ -488,12 +538,14 @@ if opts.save_results
     fprintf('[6/6] Generating comparative figure and persisting benchmark artifacts...\n');
     fig_path = fullfile(root, 'results', 'benchmark_s1_comparison.png');
     plot_benchmark_figure(report, log_a, log_b, drift_history_amb, drift_history_pure, drift_history_renorm, fig_path);
+    copyfile(fig_path, fullfile(root, 'docs', 'assets', 'benchmark_s1_comparison.png'));
 
     json_path = fullfile(root, 'results', 'benchmark_s1_comparison.json');
     mat_path = fullfile(root, 'results', 'benchmark_s1_comparison.mat');
     panda.write_json(json_path, report);
     save(mat_path, 'report', '-v7');
-    fprintf('Results successfully persisted to:\n  - %s\n  - %s\n  - %s\n\n', json_path, mat_path, fig_path);
+    fprintf('Results successfully persisted to:\n  - %s\n  - %s\n  - %s\n  - %s\n\n', ...
+        json_path, mat_path, fig_path, fullfile(root, 'docs', 'assets', 'benchmark_s1_comparison.png'));
 end
 end
 

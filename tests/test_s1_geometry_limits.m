@@ -80,6 +80,53 @@ in_above = panda_s1.check_limits(X_above, m_s1);
 assert(~any(in_above), 'panda_s1:test', 'Points above qmax must be rejected');
 
 % -------------------------------------------------------------------------
+% 3b. Non-Unit Norm Inputs on S^1 and Robust Manifold Validation
+% -------------------------------------------------------------------------
+% (a) Degenerate zero vector: must be rejected by check_limits
+X_zero = zeros(2, n);
+[in_zero, ~, ~, rep_zero] = panda_s1.check_limits(X_zero, m_s1);
+assert(~any(in_zero), 'panda_s1:test', 'Zero vectors must be rejected by check_limits');
+assert(~any(rep_zero.on_manifold), 'panda_s1:test', 'Zero vectors must fail on_manifold');
+assert(~any(rep_zero.in_arc), 'panda_s1:test', 'Zero vectors must fail in_arc');
+
+% (b) Scaled antipodal vector pointing into forbidden stop midpoint (delta_1 = pi)
+X_antipodal_scaled = panda_s1.from_q(m_s1.qmid);
+X_antipodal_scaled(:, 1) = -0.5 * m_s1.umid(:, 1); % Scaled opposite arc center on joint 1
+[in_anti, ~, ~, rep_anti] = panda_s1.check_limits(X_antipodal_scaled, m_s1);
+assert(~in_anti(1), 'panda_s1:test', 'Antipodal scaled vector must not be in limits');
+assert(~rep_anti.on_manifold(1), 'panda_s1:test', 'Antipodal scaled must fail on_manifold');
+assert(~rep_anti.in_arc(1), 'panda_s1:test', 'Antipodal scaled must fail in_arc');
+
+% (c) Valid angle inside limits but scaled norm (lambda = 0.5 and lambda = 2.0)
+X_mid = panda_s1.from_q(m_s1.qmid);
+[in_half, ~, ~, rep_half] = panda_s1.check_limits(0.5 * X_mid, m_s1);
+assert(~any(in_half), 'panda_s1:test', 'Scaled norm lambda=0.5 must fail in_limits');
+assert(~any(rep_half.on_manifold), 'panda_s1:test', 'lambda=0.5 must fail on_manifold');
+assert(all(rep_half.in_arc), 'panda_s1:test', 'lambda=0.5 should have valid in_arc direction');
+
+[in_double, ~, ~, rep_double] = panda_s1.check_limits(2.0 * X_mid, m_s1);
+assert(~any(in_double), 'panda_s1:test', 'Scaled norm lambda=2.0 must fail in_limits');
+assert(~any(rep_double.on_manifold), 'panda_s1:test', 'lambda=2.0 must fail on_manifold');
+assert(all(rep_double.in_arc), 'panda_s1:test', 'lambda=2.0 should have valid in_arc direction');
+
+% (d) Scaled norm outside limits (lambda = 2.0 on points outside arc)
+[in_out_scaled, ~, ~, rep_out_scaled] = panda_s1.check_limits(2.0 * X_above, m_s1);
+assert(~any(in_out_scaled), 'panda_s1:test', 'Scaled point outside limits must fail in_limits');
+assert(~any(rep_out_scaled.on_manifold), 'panda_s1:test', 'Must fail on_manifold');
+assert(~any(rep_out_scaled.in_arc), 'panda_s1:test', 'Must fail in_arc');
+
+% (e) Degenerate column error in config_matrix with tol
+threw_deg = false;
+try
+    panda_s1.config_matrix(zeros(2, n), 1e-6);
+catch ME
+    if strcmp(ME.identifier, 'panda_s1:config_matrix_degenerate')
+        threw_deg = true;
+    end
+end
+assert(threw_deg, 'panda_s1:test', 'config_matrix must throw panda_s1:config_matrix_degenerate');
+
+% -------------------------------------------------------------------------
 % 4. Geodesic Difference vs Box Difference across Forbidden Sector
 % -------------------------------------------------------------------------
 % In joints where 2*h > pi (Joints 1, 2, 3, 5, 6, 7), pick states near opposite limits
