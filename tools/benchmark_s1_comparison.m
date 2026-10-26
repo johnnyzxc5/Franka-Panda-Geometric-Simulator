@@ -1,0 +1,634 @@
+function report = benchmark_s1_comparison(varargin)
+%BENCHMARK_S1_COMPARISON Rigorous scientific benchmark and comparative profiling
+% of Version A (Euclidean q in R^7, Modern Robotics / optimized SHAPE RNEA),
+% Version B (Global Lie-group on (S^1)^7, algebraic screw PoE and S1 RNEA),
+% and Stock Modern Robotics (pure textbook algorithms).
+%
+% Evaluates:
+%   1. Micro-benchmarks (execution time per call in microseconds):
+%      - Forward Kinematics (End-effector pose T_0e)
+%      - Link Frames (All 10 link poses T_0i)
+%      - Space Jacobian J_s
+%      - Body Jacobian J_b
+%      - Inverse Dynamics (RNEA with gravity & friction)
+%      - Complete Dynamics (Mass matrix M and bias b)
+%      - Forward Dynamics (q_ddot = M \ (tau - b))
+%   2. Macro-benchmarks (3.6 s full trajectory simulation, 3600 RK4 steps):
+%      - Wall clock time, step latency, real-time factor
+%   3. Numerical accuracy and parity:
+%      - Frobenius and Chebyshev discrepancies across random states
+%   4. Time-step sensitivity & energy conservation scaling:
+%      - Energy balance residual vs step size h in {2.0, 1.0, 0.5, 0.25} ms
+%      - Empirical convergence order p = log2(E(2h) / E(h))
+%   5. Manifold constraint stability:
+%      - Radial drift of ||x_i||^2 = 1 over 5000 RK4 steps (Lie RK4-MK vs Ambient RK4)
+%
+% Outputs:
+%   Persists results to 'results/benchmark_s1_comparison.json' and '.mat'.
+
+p = inputParser;
+addParameter(p, 'n_states', 100, @isnumeric);
+addParameter(p, 'n_repeats', 10, @isnumeric);
+addParameter(p, 'seed', 13102026, @isnumeric);
+addParameter(p, 'save_results', true, @islogical);
+parse(p, varargin{:});
+opts = p.Results;
+
+root = fileparts(fileparts(mfilename('fullpath')));
+addpath(root);
+setup_panda();
+
+m_a = panda.model();
+m_b = panda_s1.model();
+
+rng(opts.seed, 'twister');
+N = opts.n_states;
+R = opts.n_repeats;
+
+fprintf('========================================================================\n');
+fprintf(' FRANKA PANDA DYNAMICS BENCHMARK: VERSION A vs VERSION B vs STOCK MR\n');
+fprintf(' MATLAB Version: %s\n', version);
+fprintf(' States: %d, Repeats: %d, Seed: %d\n', N, R, opts.seed);
+fprintf('========================================================================\n\n');
+
+% -------------------------------------------------------------------------
+% 1. Sample Realistic Configurations and Velocities within Bounds
+% -------------------------------------------------------------------------
+margin = 0.08;
+Q = (m_a.qmin + margin) + (m_a.qmax - m_a.qmin - 2 * margin) .* rand(7, N);
+DQ = randn(7, N) .* (0.35 * m_a.dqmax);
+DDQ = randn(7, N) .* 2.0;
+TAU = randn(7, N) .* (0.30 * m_a.taumax);
+
+% Pre-convert to S^1 representation matrices for fair per-routine profiling
+X_cells = cell(1, N);
+for i = 1:N
+    X_cells{i} = panda_s1.from_q(Q(:, i));
+end
+
+% -------------------------------------------------------------------------
+% 2. Warm-up Phase (Ensure JIT Compilation & CPU Warm-up)
+% -------------------------------------------------------------------------
+fprintf('[1/5] Warming up JIT and caches across all routines (%d passes)...\n', N);
+for i = 1:N
+    q_i = Q(:, i);
+    dq_i = DQ(:, i);
+    ddq_i = DDQ(:, i);
+    tau_i = TAU(:, i);
+    X_i = X_cells{i};
+
+    % Stock
+    stock_fk(q_i, m_a);
+    JacobianSpace(m_a.Slist, q_i);
+    JacobianBody(m_a.Blist, q_i);
+    stock_inv_dyn(q_i, dq_i, ddq_i, m_a);
+    stock_dyn(q_i, dq_i, m_a);
+    stock_fwd_dyn(q_i, dq_i, tau_i, m_a);
+
+    % Version A
+    panda.fk(q_i, m_a);
+    panda.frames(q_i, m_a);
+    panda.jacobian(q_i, m_a, 'space');
+    panda.jacobian(q_i, m_a, 'body');
+    panda.inverse_dynamics(q_i, dq_i, ddq_i, m_a);
+    panda.dynamics(q_i, dq_i, m_a);
+    panda.forward_dynamics(q_i, dq_i, tau_i, m_a);
+
+    % Version B
+    panda_s1.fk(X_i, m_b);
+    panda_s1.frames(X_i, m_b);
+    panda_s1.jacobian(X_i, m_b, 'space');
+    panda_s1.jacobian(X_i, m_b, 'body');
+    panda_s1.inverse_dynamics(X_i, dq_i, ddq_i, m_b);
+    panda_s1.dynamics(X_i, dq_i, m_b);
+    panda_s1.forward_dynamics(X_i, dq_i, tau_i, m_b);
+end
+
+% -------------------------------------------------------------------------
+% 3. Core Micro-Benchmarks (Execution Time per Call)
+% -------------------------------------------------------------------------
+fprintf('[2/5] Profiling core operations (%d repeats x %d states = %d calls each)...\n', R, N, R * N);
+
+% Forward Kinematics (T_0e)
+t_stock_fk = time_op(@() run_stock_fk(Q, m_a), R, N);
+t_a_fk     = time_op(@() run_a_fk(Q, m_a), R, N);
+t_b_fk     = time_op(@() run_b_fk(X_cells, m_b), R, N);
+
+% Link Frames (all 10 poses)
+t_stock_frames = time_op(@() run_stock_frames(Q, m_a), R, N);
+t_a_frames     = time_op(@() run_a_frames(Q, m_a), R, N);
+t_b_frames     = time_op(@() run_b_frames(X_cells, m_b), R, N);
+
+% Space Jacobian
+t_stock_js = time_op(@() run_stock_js(Q, m_a), R, N);
+t_a_js     = time_op(@() run_a_js(Q, m_a), R, N);
+t_b_js     = time_op(@() run_b_js(X_cells, m_b), R, N);
+
+% Body Jacobian
+t_stock_jb = time_op(@() run_stock_jb(Q, m_a), R, N);
+t_a_jb     = time_op(@() run_a_jb(Q, m_a), R, N);
+t_b_jb     = time_op(@() run_b_jb(X_cells, m_b), R, N);
+
+% Inverse Dynamics (RNEA)
+t_stock_id = time_op(@() run_stock_id(Q, DQ, DDQ, m_a), R, N);
+t_a_id     = time_op(@() run_a_id(Q, DQ, DDQ, m_a), R, N);
+t_b_id     = time_op(@() run_b_id(X_cells, DQ, DDQ, m_b), R, N);
+
+% Complete Dynamics (M and b)
+t_stock_dyn = time_op(@() run_stock_dyn(Q, DQ, m_a), R, N);
+t_a_dyn     = time_op(@() run_a_dyn(Q, DQ, m_a), R, N);
+t_b_dyn     = time_op(@() run_b_dyn(X_cells, DQ, m_b), R, N);
+
+% Forward Dynamics (q_ddot)
+t_stock_fd = time_op(@() run_stock_fd(Q, DQ, TAU, m_a), R, N);
+t_a_fd     = time_op(@() run_a_fd(Q, DQ, TAU, m_a), R, N);
+t_b_fd     = time_op(@() run_b_fd(X_cells, DQ, TAU, m_b), R, N);
+
+% -------------------------------------------------------------------------
+% 4. Accuracy & Mathematical Parity across Sampled States
+% -------------------------------------------------------------------------
+fprintf('[3/5] Evaluating numerical parity across %d independent states...\n', N);
+err_fk_a_vs_stock = 0; err_fk_b_vs_stock = 0; err_fk_b_vs_a = 0;
+err_js_b_vs_a = 0;     err_jb_b_vs_a = 0;
+err_id_b_vs_a = 0;     err_id_b_vs_stock = 0;
+err_m_b_vs_a = 0;      err_m_b_vs_stock = 0;
+err_b_bias_b_vs_a = 0;
+err_fd_b_vs_a = 0;
+
+for i = 1:N
+    q_i = Q(:, i); dq_i = DQ(:, i); ddq_i = DDQ(:, i); tau_i = TAU(:, i);
+    X_i = X_cells{i};
+
+    % FK
+    T_stock = stock_fk(q_i, m_a);
+    T_a = panda.fk(q_i, m_a);
+    T_b = panda_s1.fk(X_i, m_b);
+    err_fk_a_vs_stock = max(err_fk_a_vs_stock, max(abs(T_a - T_stock), [], 'all'));
+    err_fk_b_vs_stock = max(err_fk_b_vs_stock, max(abs(T_b - T_stock), [], 'all'));
+    err_fk_b_vs_a     = max(err_fk_b_vs_a,     max(abs(T_b - T_a), [], 'all'));
+
+    % Jacobians
+    Js_a = panda.jacobian(q_i, m_a, 'space');
+    Js_b = panda_s1.jacobian(X_i, m_b, 'space');
+    Jb_a = panda.jacobian(q_i, m_a, 'body');
+    Jb_b = panda_s1.jacobian(X_i, m_b, 'body');
+    err_js_b_vs_a = max(err_js_b_vs_a, max(abs(Js_b - Js_a), [], 'all'));
+    err_jb_b_vs_a = max(err_jb_b_vs_a, max(abs(Jb_b - Jb_a), [], 'all'));
+
+    % ID
+    tau_stock = stock_inv_dyn(q_i, dq_i, ddq_i, m_a);
+    tau_a = panda.inverse_dynamics(q_i, dq_i, ddq_i, m_a);
+    tau_b = panda_s1.inverse_dynamics(X_i, dq_i, ddq_i, m_b);
+    err_id_b_vs_a     = max(err_id_b_vs_a,     max(abs(tau_b - tau_a)));
+    err_id_b_vs_stock = max(err_id_b_vs_stock, max(abs(tau_b - tau_stock)));
+
+    % Dynamics
+    [M_stock, b_stock] = stock_dyn(q_i, dq_i, m_a);
+    [M_a, b_a] = panda.dynamics(q_i, dq_i, m_a);
+    [M_b, b_b] = panda_s1.dynamics(X_i, dq_i, m_b);
+    err_m_b_vs_a      = max(err_m_b_vs_a,      max(abs(M_b - M_a), [], 'all'));
+    err_m_b_vs_stock  = max(err_m_b_vs_stock,  max(abs(M_b - M_stock), [], 'all'));
+    err_b_bias_b_vs_a = max(err_b_bias_b_vs_a, max(abs(b_b - b_a)));
+
+    % FD
+    ddq_a = panda.forward_dynamics(q_i, dq_i, tau_i, m_a);
+    ddq_b = panda_s1.forward_dynamics(X_i, dq_i, tau_i, m_b);
+    err_fd_b_vs_a = max(err_fd_b_vs_a, max(abs(ddq_b - ddq_a)));
+end
+
+% -------------------------------------------------------------------------
+% 5. Macro-Benchmark: Full 3.6 s Trajectory Simulation (3600 RK4 Steps)
+% -------------------------------------------------------------------------
+fprintf('[4/5] Profiling full 3.6 s closed-loop trajectory simulation...\n');
+c_sim = panda.config();
+c_sim.save_results = false;
+
+% Warm-up simulation
+panda.simulate(m_a, c_sim);
+panda_s1.simulate(m_b, c_sim);
+
+n_sim_runs = 5;
+t_sim_a = zeros(1, n_sim_runs);
+t_sim_b = zeros(1, n_sim_runs);
+
+for r = 1:n_sim_runs
+    tic;
+    log_a = panda.simulate(m_a, c_sim);
+    t_sim_a(r) = toc;
+
+    tic;
+    log_b = panda_s1.simulate(m_b, c_sim);
+    t_sim_b(r) = toc;
+end
+
+sim_steps = (length(log_a.t) - 1) * c_sim.substeps; % Total RK4 plant steps
+sim_duration_s = c_sim.end_time;
+
+sim_a_median_s = median(t_sim_a);
+sim_b_median_s = median(t_sim_b);
+
+sim_a_step_us = (sim_a_median_s / sim_steps) * 1e6;
+sim_b_step_us = (sim_b_median_s / sim_steps) * 1e6;
+
+sim_a_rtf = sim_duration_s / sim_a_median_s;
+sim_b_rtf = sim_duration_s / sim_b_median_s;
+
+% Trajectory parity
+traj_q_max_diff = max(abs(log_a.q - log_b.q), [], 'all');
+traj_q_end_diff = max(abs(log_a.q(:, end) - log_b.q(:, end)));
+traj_dq_max_diff = max(abs(log_a.dq - log_b.omega), [], 'all');
+traj_pos_max_diff_mm = max(vecnorm(log_a.position - log_b.position)) * 1000;
+
+% -------------------------------------------------------------------------
+% 6. Time-Step Sensitivity & Energy Conservation Scaling
+% -------------------------------------------------------------------------
+fprintf('[5/5] Assessing time-step sensitivity and energy scaling (h in {2, 1, 0.5, 0.25} ms)...\n');
+h_list_ms = [2.0, 1.0, 0.5, 0.25];
+substeps_list = [2, 4, 8, 16];
+n_h = length(h_list_ms);
+
+energy_err_a = zeros(1, n_h);
+energy_err_b = zeros(1, n_h);
+
+for k = 1:n_h
+    c_h = c_sim;
+    c_h.substeps = substeps_list(k);
+    res_a = panda.simulate(m_a, c_h);
+    res_b = panda_s1.simulate(m_b, c_h);
+    energy_err_a(k) = res_a.metrics.energy_balance_max_error_J;
+    energy_err_b(k) = res_b.metrics.energy_balance_max_error_J;
+end
+
+% Empirical convergence orders: log2(E(2h) / E(h))
+order_a = zeros(1, n_h - 1);
+order_b = zeros(1, n_h - 1);
+for k = 1:(n_h - 1)
+    order_a(k) = log2(energy_err_a(k) / energy_err_a(k+1));
+    order_b(k) = log2(energy_err_b(k) / energy_err_b(k+1));
+end
+
+% -------------------------------------------------------------------------
+% 7. Manifold Constraint Stability (5000 Steps Radial Drift)
+% -------------------------------------------------------------------------
+n_drift_steps = 5000;
+dt_drift = 0.01;
+omega_drift = [1.8; -2.2; 1.5; -1.9; 2.1; -1.4; 2.0];
+J_mat = [0, -1; 1, 0];
+
+X_init = panda_s1.from_q(c_sim.q0);
+X_amb = X_init;
+X_mk_renorm = X_init;
+X_mk_no_renorm = X_init;
+
+for step = 1:n_drift_steps
+    % Ambient R^14 RK4
+    f_amb = @(X_in) J_mat * X_in .* (omega_drift');
+    k1 = f_amb(X_amb);
+    k2 = f_amb(X_amb + 0.5 * dt_drift * k1);
+    k3 = f_amb(X_amb + 0.5 * dt_drift * k2);
+    k4 = f_amb(X_amb + dt_drift * k3);
+    X_amb = X_amb + (dt_drift / 6) * (k1 + 2 * k2 + 2 * k3 + k4);
+
+    % Lie RK4-MK with renormalization
+    X_mk_renorm = panda_s1.exp_s1(dt_drift * omega_drift, X_mk_renorm, true);
+
+    % Lie RK4-MK without renormalization (pure group product)
+    X_mk_no_renorm = panda_s1.exp_s1(dt_drift * omega_drift, X_mk_no_renorm, false);
+end
+
+ambient_rk4_norm_drift = max(abs(sum(X_amb.^2, 1) - 1));
+lie_rk4_mk_renorm_drift = max(abs(sum(X_mk_renorm.^2, 1) - 1));
+lie_rk4_mk_no_renorm_drift = max(abs(sum(X_mk_no_renorm.^2, 1) - 1));
+
+% -------------------------------------------------------------------------
+% 8. Compile Comprehensive Report Structure
+% -------------------------------------------------------------------------
+ops = {'fk', 'frames', 'jacobian_space', 'jacobian_body', 'inverse_dynamics', 'dynamics', 'forward_dynamics'};
+t_stock_all = {t_stock_fk, t_stock_frames, t_stock_js, t_stock_jb, t_stock_id, t_stock_dyn, t_stock_fd};
+t_a_all     = {t_a_fk, t_a_frames, t_a_js, t_a_jb, t_a_id, t_a_dyn, t_a_fd};
+t_b_all     = {t_b_fk, t_b_frames, t_b_js, t_b_jb, t_b_id, t_b_dyn, t_b_fd};
+
+timing_table = struct();
+for idx = 1:length(ops)
+    op_name = ops{idx};
+    st = t_stock_all{idx};
+    ta = t_a_all{idx};
+    tb = t_b_all{idx};
+
+    timing_table.(op_name) = struct( ...
+        'stock_median_us', median(st), ...
+        'stock_mean_us', mean(st), ...
+        'stock_std_us', std(st), ...
+        'version_a_median_us', median(ta), ...
+        'version_a_mean_us', mean(ta), ...
+        'version_a_std_us', std(ta), ...
+        'version_b_median_us', median(tb), ...
+        'version_b_mean_us', mean(tb), ...
+        'version_b_std_us', std(tb), ...
+        'speedup_a_vs_stock', median(st) / median(ta), ...
+        'speedup_b_vs_stock', median(st) / median(tb), ...
+        'speedup_b_vs_a', median(ta) / median(tb));
+end
+
+energy_table = struct( ...
+    'step_sizes_ms', h_list_ms, ...
+    'substeps', substeps_list, ...
+    'version_a_energy_error_J', energy_err_a, ...
+    'version_b_energy_error_J', energy_err_b, ...
+    'improvement_ratio_b_vs_a', energy_err_a ./ energy_err_b, ...
+    'empirical_order_a', [order_a, NaN], ...
+    'empirical_order_b', [order_b, NaN]);
+
+simulation_table = struct( ...
+    'duration_s', sim_duration_s, ...
+    'rk4_substeps_total', sim_steps, ...
+    'version_a_median_s', sim_a_median_s, ...
+    'version_b_median_s', sim_b_median_s, ...
+    'version_a_step_us', sim_a_step_us, ...
+    'version_b_step_us', sim_b_step_us, ...
+    'version_a_real_time_factor', sim_a_rtf, ...
+    'version_b_real_time_factor', sim_b_rtf, ...
+    'simulation_speedup_b_vs_a', sim_a_median_s / sim_b_median_s, ...
+    'nominal_energy_error_a_J', log_a.metrics.energy_balance_max_error_J, ...
+    'nominal_energy_error_b_J', log_b.metrics.energy_balance_max_error_J, ...
+    'nominal_energy_improvement_ratio', log_a.metrics.energy_balance_max_error_J / log_b.metrics.energy_balance_max_error_J, ...
+    'trajectory_max_q_diff_rad', traj_q_max_diff, ...
+    'trajectory_end_q_diff_rad', traj_q_end_diff, ...
+    'trajectory_max_omega_diff_rad_s', traj_dq_max_diff, ...
+    'trajectory_max_position_diff_mm', traj_pos_max_diff_mm, ...
+    'version_b_max_unit_norm_error', log_b.metrics.max_unit_norm_error, ...
+    'version_b_limit_violations_rad', log_b.metrics.maximum_stage_limit_violation_rad);
+
+manifold_stability_table = struct( ...
+    'steps', n_drift_steps, ...
+    'step_size_s', dt_drift, ...
+    'ambient_rk4_norm_drift', ambient_rk4_norm_drift, ...
+    'lie_rk4_mk_pure_drift', lie_rk4_mk_no_renorm_drift, ...
+    'lie_rk4_mk_renorm_drift', lie_rk4_mk_renorm_drift);
+
+accuracy_table = struct( ...
+    'err_fk_a_vs_stock', err_fk_a_vs_stock, ...
+    'err_fk_b_vs_stock', err_fk_b_vs_stock, ...
+    'err_fk_b_vs_a', err_fk_b_vs_a, ...
+    'err_js_b_vs_a', err_js_b_vs_a, ...
+    'err_jb_b_vs_a', err_jb_b_vs_a, ...
+    'err_id_b_vs_a', err_id_b_vs_a, ...
+    'err_id_b_vs_stock', err_id_b_vs_stock, ...
+    'err_m_b_vs_a', err_m_b_vs_a, ...
+    'err_m_b_vs_stock', err_m_b_vs_stock, ...
+    'err_b_bias_b_vs_a', err_b_bias_b_vs_a, ...
+    'err_fd_b_vs_a', err_fd_b_vs_a);
+
+report = struct( ...
+    'matlab_version', version, ...
+    'seed', opts.seed, ...
+    'n_states', N, ...
+    'n_repeats', R, ...
+    'timings', timing_table, ...
+    'simulation', simulation_table, ...
+    'energy_scaling', energy_table, ...
+    'manifold_stability', manifold_stability_table, ...
+    'accuracy', accuracy_table);
+
+% -------------------------------------------------------------------------
+% 9. Print Formatted ASCII Tables
+% -------------------------------------------------------------------------
+fprintf('\n');
+fprintf('========================================================================================\n');
+fprintf(' MICRO-BENCHMARKS: EXECUTION TIME PER CALL (MEDIAN \\mu s)\n');
+fprintf('----------------------------------------------------------------------------------------\n');
+fprintf('%-20s | %-12s | %-12s | %-12s | %-10s | %-10s\n', ...
+    'Operation', 'Stock MR', 'Version A', 'Version B', 'A vs Stock', 'B vs A');
+fprintf('---------------------+--------------+--------------+--------------+------------+------------\n');
+for idx = 1:length(ops)
+    op = ops{idx};
+    st = timing_table.(op).stock_median_us;
+    ta = timing_table.(op).version_a_median_us;
+    tb = timing_table.(op).version_b_median_us;
+    spa = timing_table.(op).speedup_a_vs_stock;
+    spb = timing_table.(op).speedup_b_vs_a;
+    fprintf('%-20s | %10.2f us | %10.2f us | %10.2f us | %9.2fx  | %9.2fx\n', ...
+        op, st, ta, tb, spa, spb);
+end
+fprintf('========================================================================================\n\n');
+
+fprintf('========================================================================================\n');
+fprintf(' MACRO-BENCHMARK: 3.6 s CLOSED-LOOP SIMULATION (3600 RK4 PLANT SUBSTEPS)\n');
+fprintf('----------------------------------------------------------------------------------------\n');
+fprintf('  Metric                              | Version A (q in R^7) | Version B (X in (S1)^7)\n');
+fprintf('--------------------------------------+----------------------+-------------------------\n');
+fprintf('  Wall-clock Simulation Time          | %18.2f ms | %21.2f ms\n', sim_a_median_s * 1e3, sim_b_median_s * 1e3);
+fprintf('  Plant Substep Latency               | %18.2f us | %21.2f us\n', sim_a_step_us, sim_b_step_us);
+fprintf('  Real-Time Factor (RTF)              | %18.2fx  | %21.2fx\n', sim_a_rtf, sim_b_rtf);
+fprintf('  Nominal Energy Balance Error (J)    | %18.4e J  | %21.4e J\n', log_a.metrics.energy_balance_max_error_J, log_b.metrics.energy_balance_max_error_J);
+fprintf('  Energy Conservation Improvement     | %18s   | %21.2fx\n', 'Baseline (1x)', simulation_table.nominal_energy_improvement_ratio);
+fprintf('  Max Trajectory Parity Error (rad)   | %18s   | %21.4e rad\n', '-', traj_q_max_diff);
+fprintf('  Final Endpoint Parity Error (rad)   | %18s   | %21.4e rad\n', '-', traj_q_end_diff);
+fprintf('  Max S^1 Unit Norm Violation         | %18s   | %21.4e\n', 'N/A (R^7)', log_b.metrics.max_unit_norm_error);
+fprintf('  Maximum Joint Limit Violation (rad) | %18.1e rad | %21.1e rad\n', log_a.metrics.maximum_stage_limit_violation_rad, log_b.metrics.maximum_stage_limit_violation_rad);
+fprintf('========================================================================================\n\n');
+
+fprintf('========================================================================================\n');
+fprintf(' TIME-STEP REFINEMENT & ENERGY ERROR SCALING: E_max(h)\n');
+fprintf('----------------------------------------------------------------------------------------\n');
+fprintf('  Step Size h (ms) | Version A Error (J) | Version B Error (J) | Ratio (A / B) | Order B\n');
+fprintf('-------------------+---------------------+---------------------+---------------+--------\n');
+for k = 1:n_h
+    if k < n_h
+        ord_str = sprintf('%.2f', order_b(k));
+    else
+        ord_str = '-';
+    end
+    fprintf('  %6.2f ms         | %17.4e J | %17.4e J | %11.1fx   | %s\n', ...
+        h_list_ms(k), energy_err_a(k), energy_err_b(k), energy_err_a(k) / energy_err_b(k), ord_str);
+end
+fprintf('========================================================================================\n\n');
+
+fprintf('========================================================================================\n');
+fprintf(' MANIFOLD STABILITY: MAX ||x_i||^2 - 1 OVER 5,000 STEPS (dt = 10 ms)\n');
+fprintf('----------------------------------------------------------------------------------------\n');
+fprintf('  Ambient R^14 RK4 (unprojected):       %14.4e\n', ambient_rk4_norm_drift);
+fprintf('  Lie-Group RK4-MK (pure group action): %14.4e\n', lie_rk4_mk_no_renorm_drift);
+fprintf('  Lie-Group RK4-MK (with renorm):       %14.4e\n', lie_rk4_mk_renorm_drift);
+fprintf('========================================================================================\n\n');
+
+% -------------------------------------------------------------------------
+% 10. Persist Output Files
+% -------------------------------------------------------------------------
+if opts.save_results
+    json_path = fullfile(root, 'results', 'benchmark_s1_comparison.json');
+    mat_path = fullfile(root, 'results', 'benchmark_s1_comparison.mat');
+    panda.write_json(json_path, report);
+    save(mat_path, 'report', '-v7');
+    fprintf('Results successfully persisted to:\n  - %s\n  - %s\n\n', json_path, mat_path);
+end
+end
+
+% =========================================================================
+% Helper Functions for Timed Execution
+% =========================================================================
+function t_per_call_us = time_op(op_func, repeats, n_calls)
+t_runs = zeros(1, repeats);
+for r = 1:repeats
+    tic;
+    op_func();
+    t_runs(r) = toc;
+end
+t_per_call_us = (t_runs ./ n_calls) * 1e6;
+end
+
+function T = stock_fk(q, m)
+T = m.home;
+for j = m.n:-1:1
+    T = MatrixExp6(VecTose3(m.Slist(:, j) * q(j))) * T;
+end
+end
+
+function run_stock_fk(Q, m)
+for i = 1:size(Q, 2)
+    stock_fk(Q(:, i), m);
+end
+end
+
+function run_a_fk(Q, m)
+for i = 1:size(Q, 2)
+    panda.fk(Q(:, i), m);
+end
+end
+
+function run_b_fk(X_cells, m)
+for i = 1:length(X_cells)
+    panda_s1.fk(X_cells{i}, m);
+end
+end
+
+function run_stock_frames(Q, m)
+for i = 1:size(Q, 2)
+    T = eye(4);
+    for j = 1:m.n+1
+        T = T * m.Mlist(:, :, j);
+        if j <= m.n
+            T = T * MatrixExp6(VecTose3([m.axis_local(:, j); zeros(3, 1)] * Q(j, i)));
+        end
+    end
+end
+end
+
+function run_a_frames(Q, m)
+for i = 1:size(Q, 2)
+    panda.frames(Q(:, i), m);
+end
+end
+
+function run_b_frames(X_cells, m)
+for i = 1:length(X_cells)
+    panda_s1.frames(X_cells{i}, m);
+end
+end
+
+function run_stock_js(Q, m)
+for i = 1:size(Q, 2)
+    JacobianSpace(m.Slist, Q(:, i));
+end
+end
+
+function run_a_js(Q, m)
+for i = 1:size(Q, 2)
+    panda.jacobian(Q(:, i), m, 'space');
+end
+end
+
+function run_b_js(X_cells, m)
+for i = 1:length(X_cells)
+    panda_s1.jacobian(X_cells{i}, m, 'space');
+end
+end
+
+function run_stock_jb(Q, m)
+for i = 1:size(Q, 2)
+    JacobianBody(m.Blist, Q(:, i));
+end
+end
+
+function run_a_jb(Q, m)
+for i = 1:size(Q, 2)
+    panda.jacobian(Q(:, i), m, 'body');
+end
+end
+
+function run_b_jb(X_cells, m)
+for i = 1:length(X_cells)
+    panda_s1.jacobian(X_cells{i}, m, 'body');
+end
+end
+
+function run_stock_id(Q, DQ, DDQ, m)
+for i = 1:size(Q, 2)
+    stock_inv_dyn(Q(:, i), DQ(:, i), DDQ(:, i), m);
+end
+end
+
+function run_a_id(Q, DQ, DDQ, m)
+for i = 1:size(Q, 2)
+    panda.inverse_dynamics(Q(:, i), DQ(:, i), DDQ(:, i), m);
+end
+end
+
+function run_b_id(X_cells, DQ, DDQ, m)
+for i = 1:length(X_cells)
+    panda_s1.inverse_dynamics(X_cells{i}, DQ(:, i), DDQ(:, i), m);
+end
+end
+
+function run_stock_dyn(Q, DQ, m)
+for i = 1:size(Q, 2)
+    stock_dyn(Q(:, i), DQ(:, i), m);
+end
+end
+
+function run_a_dyn(Q, DQ, m)
+for i = 1:size(Q, 2)
+    panda.dynamics(Q(:, i), DQ(:, i), m);
+end
+end
+
+function run_b_dyn(X_cells, DQ, m)
+for i = 1:length(X_cells)
+    panda_s1.dynamics(X_cells{i}, DQ(:, i), m);
+end
+end
+
+function run_stock_fd(Q, DQ, TAU, m)
+for i = 1:size(Q, 2)
+    stock_fwd_dyn(Q(:, i), DQ(:, i), TAU(:, i), m);
+end
+end
+
+function run_a_fd(Q, DQ, TAU, m)
+for i = 1:size(Q, 2)
+    panda.forward_dynamics(Q(:, i), DQ(:, i), TAU(:, i), m);
+end
+end
+
+function run_b_fd(X_cells, DQ, TAU, m)
+for i = 1:length(X_cells)
+    panda_s1.forward_dynamics(X_cells{i}, DQ(:, i), TAU(:, i), m);
+end
+end
+
+% Stock modern robotics dynamics helpers
+function tau = stock_inv_dyn(q, dq, ddq, m)
+tau = InverseDynamics(q, dq, ddq, m.gravity, zeros(6, 1), m.Mlist, m.Glist, m.Slist) + ...
+    panda.friction(dq, m);
+end
+
+function [M, b] = stock_dyn(q, dq, m)
+M = MassMatrix(q, m.Mlist, m.Glist, m.Slist) + m.Japp;
+b = InverseDynamics(q, dq, zeros(7, 1), m.gravity, zeros(6, 1), m.Mlist, m.Glist, m.Slist) + ...
+    panda.friction(dq, m);
+end
+
+function ddq = stock_fwd_dyn(q, dq, tau, m)
+[M, b] = stock_dyn(q, dq, m);
+ddq = M \ (tau - b);
+end
