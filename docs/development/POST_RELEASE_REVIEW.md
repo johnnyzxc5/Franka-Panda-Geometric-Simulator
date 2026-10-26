@@ -308,4 +308,15 @@ Se ejecutó la validación completa en MATLAB R2026a Update 4:
 - Publicación (`git push`) de ambas ramas en `origin`.
 - Auditoría remota de renderizado de `https://github.com/johnnyzxc5/Franka-Panda-Geometric-Simulator`.
 
+### 4. Corrección Definitiva de Renderizado LaTeX / CommonMark en GitHub
+
+A partir de las capturas focalizadas de la página pública en GitHub, se identificaron y resolvieron 4 causas raíz de colisiones sintácticas entre CommonMark y MathJax:
+1. **Pies de figuras envueltos en `*...*`:** En las celdas bajo los GIFs y el pie de la simulación combinada, las cursivas exteriores `*...*` provocaban que CommonMark procesara el texto como `<em>` antes del paso matemático, ignorando `$ ... $`. Se retiraron los asteriscos envolventes, permitiendo la compilación nativa.
+2. **Error de LaTeX en modo texto (`' _ ' allowed only in math mode`):** En la fila de `Large-Displacement Error`, el uso de `\text{box_diff}` con un guion bajo no escapado provocaba un error fatal en KaTeX. Se reemplazó por formato de código inline con backticks `` `box_diff(X_ref, X, m)` ``.
+3. **Colisión de subíndices múltiples (`_`):** En CommonMark, dos o más fórmulas inline con subíndices `_` en la misma línea o párrafo hacían que el analizador emparejara los guiones bajos como delimitadores de cursiva (`<em>...</em>`), rompiendo la sintaxis de las fórmulas. Se eliminaron los subíndices redundantes en las viñetas del benchmark (`\max |\dot{q}| / \dot{q}_{\max}`), en la fila de adjuntos RNEA y en la viñeta de monitorización dinámica.
+4. **Verificación en vivo:** La auditoría final del DOM en vivo (`chrome-devtools-mcp`) confirmó:
+   - `rawDollarCount: 0` (cero dólares sin compilar).
+   - `redBoxCount: 0` (cero cajas rojas de error).
+   - `totalCompiledMathSpans: 207` (207 fórmulas matemáticas compiladas limpiamente en MathML).
+
 

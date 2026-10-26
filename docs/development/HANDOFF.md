@@ -112,7 +112,8 @@
 * **Integración y Publicación Git:**
   - Rama `review/s1-scientific-polish` fusionada limpiamente en `main` mediante merge sin avance rápido (`--no-ff`).
   - Ramas `main` y `review/s1-scientific-polish` publicadas en `origin`.
-  - Verificación remota en vivo en `https://github.com/johnnyzxc5/Franka-Panda-Geometric-Simulator`.
+  - Auditoría sistemática del README renderizado en vivo en GitHub: resolución de todas las colisiones sintácticas entre CommonMark y MathJax (eliminación de cursivas envolventes en pies de figuras, erradicación de errores de KaTeX `' _ ' allowed only in math mode` mediante backticks para código, y eliminación de emparejamientos espurios de guiones bajos en fórmulas inline).
+  - Verificación remota final en el DOM real: 0 cajas rojas de error, 0 dólares sin compilar y 207 fórmulas matemáticas renderizadas limpiamente en MathML.
 * **Cierre del Ciclo:** Ciclo de revisión científica y pulido R0–R5 finalizado exitosamente. Repositorio completamente verificado y público.
 
 ---
